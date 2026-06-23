@@ -157,6 +157,104 @@ CREATE TABLE scoring_config (
 
 ---
 
+
+---
+
+## Wazuh Alert Compatibility
+
+Semua log yang masuk melalui endpoint `/api/v1/wazuh` disimpan di tabel `logs_raw` dengan `source = 'wazuh'`. Field spesifik Wazuh (seperti rule_id, agent info, MITRE ATT&CK) disimpan di kolom **`evidence`** (JSONB) pada tabel `anomaly_detections` saat parser mendeteksi anomaly.
+
+### Evidence JSONB Structure
+
+```json
+{
+  "wazuh_rule_id": 5710,
+  "wazuh_rule_description": "sshd: Failed password on user root",
+  "wazuh_rule_level": 10,
+  "wazuh_agent_id": "001",
+  "wazuh_agent_name": "soar-wazuh",
+  "wazuh_agent_ip": "100.107.158.164",
+  "wazuh_severity": "high",
+  "wazuh_source_ip": "45.33.32.156",
+  "wazuh_destination_user": "root",
+  "wazuh_protocol": "ssh",
+  "wazuh_attempts": 12,
+  "wazuh_raw_alert": {
+    "timestamp": "2026-06-23T08:00:00Z",
+    "rule": {
+      "id": 5710,
+      "level": 10,
+      "description": "sshd: Failed password"
+    },
+    "agent": {
+      "id": "001",
+      "name": "soar-wazuh"
+    },
+    "data": {
+      "srcip": "45.33.32.156",
+      "dstuser": "root"
+    }
+  },
+  "mitre_technique_id": "T1110",
+  "mitre_technique_name": "Brute Force",
+  "mitre_tactic": "Credential Access"
+}
+```
+
+### Query Examples
+
+**Cari anomaly dari Wazuh berdasarkan rule_id:**
+```sql
+SELECT ad.time, e.entity_value, ad.anomaly_type, ad.severity, ad.score,
+       ad.evidence->>'wazuh_rule_id' AS rule_id,
+       ad.evidence->>'wazuh_rule_description' AS rule_desc
+FROM anomaly_detections ad
+JOIN entities e ON e.id = ad.entity_id
+WHERE ad.evidence->>'wazuh_rule_id' = '5710'
+  AND ad.time > NOW() - INTERVAL '7 days'
+ORDER BY ad.time DESC;
+```
+
+**Cari semua alert dari Wazuh dengan severity tinggi:**
+```sql
+SELECT ad.time, e.entity_value, ad.anomaly_type, ad.score,
+       ad.evidence->>'wazuh_source_ip' AS source_ip,
+       ad.evidence->>'mitre_technique_name' AS mitre_technique
+FROM anomaly_detections ad
+JOIN entities e ON e.id = ad.entity_id
+WHERE ad.severity IN ('high', 'critical')
+  AND ad.evidence ? 'wazuh_rule_id'
+ORDER BY ad.score DESC
+LIMIT 50;
+```
+
+**Cari anomaly dari IP tertentu via Wazuh:**
+```sql
+SELECT ad.time, ad.anomaly_type, ad.severity,
+       ad.evidence->>'wazuh_rule_description' AS description
+FROM anomaly_detections ad
+WHERE ad.evidence->>'wazuh_source_ip' = '45.33.32.156'
+ORDER BY ad.time DESC;
+```
+
+### Wazuh Severity Mapping
+
+Parser Wazuh otomatis memetakan `rule.level` (0-15) ke UEBA severity:
+
+| Wazuh Level | UEBA Severity | Keterangan |
+|:-----------:|:-------------:|:-----------|
+| 0 - 3 | `low` | Informational events |
+| 4 - 7 | `medium` | Unusual events / policy violations |
+| 8 - 11 | `high` | Security threats / attacks |
+| 12 - 15 | `critical` | Critical incidents / multi-attack |
+
+### Keuntungan Opsi ini (JSONB)
+
+- **Flexible**: Wazuh bisa nambah fields baru kapan aja tanpa alter table
+- **No migration**: Tidak perlu perubahan skema database
+- **Queryable**: JSONB di PostgreSQL mendukung indexing (`?`, `->>`, `@>` operators)
+- **Self-documenting**: Setiap record lengkap dengan raw alert asli
+
 ## Continuous Aggregates
 
 ```sql
