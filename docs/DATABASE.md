@@ -287,6 +287,25 @@ GROUP BY hour, anomaly_type ORDER BY hour;
 
 ---
 
+## Network
+---
+
+## 🌐 Network (Netbird)
+
+Semua server terhubung via **Netbird VPN** (100.107.x.x/16).
+
+| Server | Netbird IP | Fungsi |
+|:-------|:-----------|:-------|
+| **soar-wazuh** | `100.107.158.164` | Wazuh Manager — kirim alert via webhook |
+| **soar-node3** | `100.107.105.81` | Syslog forwarder — kirim log ke detection-api |
+| **soar-dashboard** | `100.107.189.94` | UEBA Detection Platform (detection-api, detection-db, detection-dashboard) |
+
+### Webhook Direct ke soar-dashboard
+Source yang kirim data langsung (bukan lewat node3):
+- **Wazuh** → `http://100.107.189.94:8081/api/v1/wazuh`
+- **Delinea PAM** → `http://100.107.189.94:8081/api/v1/delinea`
+
+
 ## Related Documentation
 
 | Doc | Path | Description |
