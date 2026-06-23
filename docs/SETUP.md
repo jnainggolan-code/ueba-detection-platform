@@ -184,6 +184,7 @@ Setiap source punya **parser** dan **storage** terpisah:
 POST /api/v1/ingest  ──► SyslogParser ──► logs_raw (source='syslog')
 POST /api/v1/process ──► RawParser    ──► logs_raw (source='raw')
 POST /api/v1/wazuh   ──► WazuhParser  ──► logs_raw (source='wazuh')
+POST /api/v1/delinea ──► DelineaParser ──► logs_raw (source='delinea')
 ```
 
 ### 3.3 Authentication
