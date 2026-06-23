@@ -32,6 +32,7 @@ curl -X POST http://dashboard.netbird.cloud:8081/api/v1/auth/login \
 POST /api/v1/ingest   → SyslogParser → logs_raw (source='syslog')
 POST /api/v1/process  → RawParser    → logs_raw (source='raw')
 POST /api/v1/wazuh    → WazuhParser  → logs_raw (source='wazuh')
+POST /api/v1/delinea  → DelineaParser → logs_raw (source='delinea')
 ```
 
 ---
@@ -39,6 +40,17 @@ POST /api/v1/wazuh    → WazuhParser  → logs_raw (source='wazuh')
 ## Endpoints
 
 ### Ingestion
+
+#### POST `/api/v1/delinea`
+Webhook untuk Delinea PAM events (privileged account access, password checkout, session recording).
+
+```bash
+curl -X POST http://dashboard.netbird.cloud:8081/api/v1/delinea 
+  -H "X-API-Key: ***" -H "Content-Type: application/json" 
+  -d '{"event_type":"password_checkout","timestamp":"...","user":"admin",
+       "account":"root@server01","target":"192.168.1.100",
+       "reason":"emergency_access","approver":"manager@company.com"}'
+```
 
 #### POST `/api/v1/ingest`
 ```bash
