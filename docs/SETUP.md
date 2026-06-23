@@ -20,7 +20,7 @@
 **Akses yang diperlukan:**
 - SSH ke `soar-dashboard` (100.107.189.94)
 - SSH ke `soar-node3` (100.107.105.81)
-- SSH ke `soar-wazuh` (rnd-jjn)
+- SSH ke `soar-wazuh` (soar-wazuh (100.107.158.164))
 - Git access ke `github.com/jnainggolan-code/ueba-detection-platform`
 
 ---
@@ -267,7 +267,7 @@ sudo tee /etc/rsyslog.d/40-ueba-forward.conf > /dev/null << 'EOF'
 # Forward logs ke detection-api
 *.* action(
     type="omfwd"
-    target="dashboard.netbird.cloud"
+    target="100.107.189.94"
     port="8081"
     protocol="tcp"
     template="RSYSLOG_SyslogProtocol23Format"
@@ -281,7 +281,7 @@ sudo systemctl restart rsyslog
 
 ```bash
 # Dari soar-node3, test kirim log
-curl -X POST http://dashboard.netbird.cloud:8081/api/v1/ingest \
+curl -X POST http://100.107.189.94:8081/api/v1/ingest \
   -H "Content-Type: application/json" \
   -d '{"source":"test","message":"Pipeline test","level":"info"}'
 
