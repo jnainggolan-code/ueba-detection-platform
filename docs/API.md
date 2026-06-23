@@ -14,6 +14,7 @@
 | Syslog | `X-API-Key: ***` | `ingest:syslog` |
 | Raw Log | `X-API-Key: ***` | `ingest:raw` |
 | Wazuh | `X-API-Key: ***` | `ingest:wazuh` |
+| Delinea | `X-API-Key: ***` | `ingest:delinea` |
 | Admin | `X-API-Key: ***` | `admin:*` |
 
 ### JWT Tokens
@@ -41,17 +42,6 @@ POST /api/v1/delinea  → DelineaParser → logs_raw (source='delinea')
 
 ### Ingestion
 
-#### POST `/api/v1/delinea`
-Webhook untuk Delinea PAM events (privileged account access, password checkout, session recording).
-
-```bash
-curl -X POST http://dashboard.netbird.cloud:8081/api/v1/delinea 
-  -H "X-API-Key: ***" -H "Content-Type: application/json" 
-  -d '{"event_type":"password_checkout","timestamp":"...","user":"admin",
-       "account":"root@server01","target":"192.168.1.100",
-       "reason":"emergency_access","approver":"manager@company.com"}'
-```
-
 #### POST `/api/v1/ingest`
 ```bash
 curl -X POST http://dashboard.netbird.cloud:8081/api/v1/ingest \
@@ -67,6 +57,19 @@ curl -X POST http://dashboard.netbird.cloud:8081/api/v1/process \
   -H "X-API-Key: ***" -H "Content-Type: application/json" \
   -d '{"timestamp":"...","entity_type":"user","entity_value":"jnainggolan",
        "event_type":"login","source_ip":"100.107.105.81","status":"success"}'
+```
+
+#### POST `/api/v1/delinea`
+
+#### POST `/api/v1/delinea`
+Webhook untuk Delinea PAM events (privileged account access, password checkout, session recording events).
+
+```bash
+curl -X POST http://dashboard.netbird.cloud:8081/api/v1/delinea \
+  -H "X-API-Key: ***" -H "Content-Type: application/json" \
+  -d '{"event_type":"password_checkout","timestamp":"2026-06-23T08:00:00Z",
+       "user":"admin","account":"root@server01","target":"192.168.1.100",
+       "reason":"emergency_access","approver":"manager@company.com"}'
 ```
 
 #### POST `/api/v1/wazuh`

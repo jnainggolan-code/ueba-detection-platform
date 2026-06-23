@@ -251,6 +251,9 @@ soar-node3 ──► detection-api (soar-dashboard)
 
 soar-wazuh ──► detection-api (soar-dashboard)
   (webhook)      (:8081/api/v1/wazuh)
+
+soar-dashboard ──► detection-api (soar-dashboard)
+  (delinea)      (:8081/api/v1/delinea)
 ```
 
 ### 5.2 Konfigurasi rsyslog di soar-node3
