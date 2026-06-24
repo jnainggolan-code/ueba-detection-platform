@@ -67,6 +67,7 @@ export interface Stats {
   avg_risk_score: number;
   events_last_hour: number;
   critical_alerts: number;
+  by_source?: { source: string; count: number }[];
   /** Chart data */
   event_trend?: { hour: string; events: number; alerts: number }[];
   entity_risk?: { name: string; score: number }[];

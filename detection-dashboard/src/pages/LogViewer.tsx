@@ -1,6 +1,8 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { Search, Filter, AlertTriangle } from 'lucide-react';
 import { useEvents } from '@/hooks/useEvents';
+import { useStats } from '@/hooks/useStats';
+import api from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
@@ -21,6 +23,31 @@ export default function LogViewer() {
   const [sortField, setSortField] = useState<SortField>('timestamp');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
+  const { stats } = useStats();
+  useEffect(() => {
+    if (stats?.by_source) {
+      setSourceOptions([
+        { value: '', label: 'All Sources' },
+        ...stats.by_source.map((s: any) => ({ value: s.source, label: s.source.charAt(0).toUpperCase() + s.source.slice(1) }))
+      ]);
+    }
+    // Build event type options from recent events
+    const fetchTypes = async () => {
+      try {
+        const res = await api.get('/v1/events', { params: { limit: 500 } });
+        const types = new Set(res.data.data.map((e: any) => e.event_type).filter(Boolean));
+        setEventTypeOptions([
+          { value: '', label: 'All Events' },
+          ...Array.from(types).map((t: any) => ({
+            value: t,
+            label: t.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+          }))
+        ]);
+      } catch {}
+    };
+    fetchTypes();
+  }, [stats]);
+
   const handleSearch = () => {
     updateQuery({ search: searchInput || undefined, page: 1 });
   };
@@ -29,24 +56,11 @@ export default function LogViewer() {
     if (e.key === 'Enter') handleSearch();
   };
 
-  const sourceOptions = [
-    { value: '', label: 'All Sources' },
-    { value: 'windows', label: 'Windows' },
-    { value: 'linux', label: 'Linux' },
-    { value: 'network', label: 'Network' },
-    { value: 'cloud', label: 'Cloud' },
-    { value: 'app', label: 'Application' },
-  ];
+  // Derive source options from real API data
+  const [sourceOptions, setSourceOptions] = useState<{value: string; label: string}[]>([{value: '', label: 'All Sources'}]);
+  const [eventTypeOptions, setEventTypeOptions] = useState<{value: string; label: string}[]>([{value: '', label: 'All Events'}]);
 
-  const eventTypeOptions = [
-    { value: '', label: 'All Events' },
-    { value: 'authentication', label: 'Authentication' },
-    { value: 'network_connection', label: 'Network Connection' },
-    { value: 'file_access', label: 'File Access' },
-    { value: 'process_execution', label: 'Process Execution' },
-    { value: 'privilege_escalation', label: 'Privilege Escalation' },
-    { value: 'data_exfiltration', label: 'Data Exfiltration' },
-  ];
+
 
   // Sort events
   const sortedEvents = useMemo(() => {
