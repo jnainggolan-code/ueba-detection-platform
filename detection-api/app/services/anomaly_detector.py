@@ -251,6 +251,15 @@ class AnomalyDetector:
             })
             anomaly_id = res_anom.scalar()
 
+            # ── Auto-create alert if severity is high or critical ──
+            if severity.lower() in ("high", "critical"):
+                # Call the DB function fn_generate_alert to create an alert record
+                await self.session.execute(
+                    text("SELECT fn_generate_alert(:anomaly_id)"),
+                    {"anomaly_id": anomaly_id},
+                )
+
+
             anomalies.append({
                 "id": anomaly_id,
                 "time": current_time.isoformat(),
