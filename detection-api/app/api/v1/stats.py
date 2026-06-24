@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, text, select, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -43,6 +43,7 @@ class AnomalyDetection(Base):
 @router.get("/stats")
 async def get_stats(
     session: AsyncSession = Depends(get_db_session),
+    time_range: str = Query(default="24h", description="Time range: 24h, 7d, or 30d"),
 ) -> dict:
     """Return aggregate platform statistics."""
     # Total events
@@ -103,8 +104,17 @@ async def get_stats(
     )
 
     # --- Chart data additions ---
-    # Hourly event trend (last 24h)
-    hours_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+    # Hourly event trend (respects time_range param)
+    if time_range == "7d":
+        range_hours = 168  # 7 * 24
+        range_label = "7d"
+    elif time_range == "30d":
+        range_hours = 720  # 30 * 24
+        range_label = "30d"
+    else:
+        range_hours = 24
+        range_label = "24h"
+    hours_ago = datetime.now(timezone.utc) - timedelta(hours=range_hours)
     hourly_rows = await session.execute(
         select(
             func.date_trunc("hour", LogsRaw.time).label("hour"),
@@ -116,10 +126,25 @@ async def get_stats(
     )
     hourly_map = {r.hour.strftime("%Y-%m-%d %H:00:00+00:00") if hasattr(r.hour, "strftime") else str(r.hour): r.cnt for r in hourly_rows.all()}
     event_trend = []
-    for h in range(24):
-        ts = datetime.now(timezone.utc) - timedelta(hours=23-h)
+    if range_label == "24h":
+        # Hourly buckets for 24h
+        bucket_tpl = "hour"
+        bucket_format = "%H:00"
+        num_buckets = 24
+    elif range_label == "7d":
+        # 6-hour buckets for 7d
+        bucket_tpl = "day"
+        bucket_format = "%d %H:00"
+        num_buckets = 28  # 168/6
+    else:
+        # Daily buckets for 30d
+        bucket_tpl = "day"
+        bucket_format = "%d %b"
+        num_buckets = 30
+    for h in range(num_buckets):
+        ts = datetime.now(timezone.utc) - timedelta(hours=num_buckets-1-h)
         hour_key = ts.strftime("%Y-%m-%d %H:00:00+00:00")
-        hour_label = ts.strftime("%H:00")
+        hour_label = ts.strftime(bucket_format)
         count = hourly_map.get(hour_key, 0)
         event_trend.append({"hour": hour_label, "events": count, "alerts": 0})
 

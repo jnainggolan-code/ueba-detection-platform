@@ -125,8 +125,8 @@ export const getAlertCounts = (): Promise<AlertCounts> =>
 
 // ---- Stats APIs ----
 
-export const getStats = (): Promise<Stats> =>
-  api.get('/v1/stats').then((res) => res.data);
+export const getStats = (timeRange: string = '24h'): Promise<Stats> =>
+  api.get('/v1/stats', { params: { time_range: timeRange } }).then((res) => res.data);
 
 // ---- Entity APIs ----
 

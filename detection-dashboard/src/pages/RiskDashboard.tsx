@@ -113,8 +113,8 @@ function PieTooltip({ active, payload }: any) {
 }
 
 export default function RiskDashboard() {
-  const { stats, loading, error } = useStats();
   const [timeRange, setTimeRange] = useState('24h');
+  const { stats, loading, error } = useStats(timeRange);
 
   const chartData = stats?.event_trend || eventTrendData;
   const chartEventTypeData = stats?.event_type_distribution?.length ? stats.event_type_distribution : eventTypeData;
