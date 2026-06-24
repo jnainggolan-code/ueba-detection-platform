@@ -84,7 +84,11 @@ class EventRepository:
             query = query.where(LogsRaw.raw_payload["event_type"].as_string() == event_type)
         if search:
             pattern = f"%{search}%"
-            query = query.where(LogsRaw.raw_payload["search_field"].as_string().ilike(pattern))
+            from sqlalchemy import cast, String
+            # Search entire raw_payload JSONB as text (covers all fields incl. details)
+            query = query.where(
+                cast(LogsRaw.raw_payload, String).ilike(pattern)
+            )
 
         # Count total first
         count_q = select(func.count()).select_from(query.subquery())
