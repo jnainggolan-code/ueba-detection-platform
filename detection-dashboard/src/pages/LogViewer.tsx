@@ -10,7 +10,7 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import { PageLoading, InlineLoading } from '@/components/shared/LoadingSpinner';
-import { formatTimestamp, riskScoreColor, truncate } from '@/lib/utils';
+import { formatTimestampWIB, riskScoreColor, truncate } from '@/lib/utils';
 import type { DetectionEvent } from '@/lib/api';
 
 type SortField = 'timestamp' | 'risk_score';
@@ -200,7 +200,7 @@ export default function LogViewer() {
                     >
                       <td className="px-4 py-3">
                         <span className="text-xs text-ueba-text-secondary font-mono">
-                          {formatTimestamp(event.timestamp)}
+                          {formatTimestampWIB(event.timestamp)}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -238,7 +238,7 @@ export default function LogViewer() {
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-xs text-ueba-text-muted">Timestamp</span>
-                                  <span className="text-xs text-ueba-text-secondary">{formatTimestamp(event.timestamp)}</span>
+                                  <span className="text-xs text-ueba-text-secondary">{formatTimestampWIB(event.timestamp)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-xs text-ueba-text-muted">Source</span>
