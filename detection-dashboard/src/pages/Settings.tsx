@@ -11,7 +11,7 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
-  Settings,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -72,68 +72,70 @@ export default function SettingsPage() {
       })
     : 'No events yet';
 
+  const apiOk = health?.status === 'ok';
+
   return (
-    <div className=max-w-3xl mx-auto space-y-6>
-      <div className=flex items-center justify-between>
-        <div className=flex items-center gap-3>
-          <Settings className=w-6 h-6 text-ueba-accent-blue />
-          <h1 className=text-lg font-bold text-ueba-text-primary>Settings</h1>
+    <div className="max-w-3xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <SettingsIcon className="w-6 h-6 text-ueba-accent-blue" />
+          <h1 className="text-lg font-bold text-ueba-text-primary">Settings</h1>
         </div>
         <button
           onClick={fetchData}
-          className=flex items-center gap-1.5 text-xs text-ueba-accent-blue hover:underline
+          className="flex items-center gap-1.5 text-xs text-ueba-accent-blue hover:underline"
         >
-          <RefreshCw className=w-3.5 h-3.5 />
+          <RefreshCw className="w-3.5 h-3.5" />
           Refresh
         </button>
       </div>
 
       {error && (
         <Card>
-          <CardContent className=py-3>
-            <p className=text-xs text-ueba-accent-red>Error loading settings: {error}</p>
+          <CardContent className="py-3">
+            <p className="text-xs text-ueba-accent-red">Error loading settings: {error}</p>
           </CardContent>
         </Card>
       )}
 
       <Card>
         <CardHeader>
-          <CardTitle className=flex items-center gap-2 text-sm>
-            <Activity className=w-4 h-4 text-ueba-accent-blue />
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Activity className="w-4 h-4 text-ueba-accent-blue" />
             Connection Status
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className=grid grid-cols-1 md:grid-cols-2 gap-4>
-            <div className=flex items-center justify-between p-3 rounded bg-ueba-bg-deep border border-ueba-border>
-              <div className=flex items-center gap-3>
-                <div className={w-8 h-8 rounded-full flex items-center justify-center  + (health?.status === 'ok' ? 'bg-emerald-500/20' : 'bg-red-500/20')}>
-                  {health?.status === 'ok'
-                    ? <CheckCircle className=w-4 h-4 text-emerald-400 />
-                    : <XCircle className=w-4 h-4 text-ueba-accent-red />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center justify-between p-3 rounded bg-ueba-bg-deep border border-ueba-border">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${apiOk ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
+                  {apiOk
+                    ? <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    : <XCircle className="w-4 h-4 text-ueba-accent-red" />
                   }
                 </div>
                 <div>
-                  <p className=text-xs font-semibold text-ueba-text-primary>API Status</p>
-                  <p className=text-[10px] text-ueba-text-muted>REST API endpoint</p>
+                  <p className="text-xs font-semibold text-ueba-text-primary">API Status</p>
+                  <p className="text-[10px] text-ueba-text-muted">REST API endpoint</p>
                 </div>
               </div>
-              <Badge variant={health?.status === 'ok' ? 'success' : 'danger'}>
-                {health?.status === 'ok' ? 'Connected' : 'Disconnected'}
+              <Badge variant={apiOk ? 'success' : 'danger'}>
+                {apiOk ? 'Connected' : 'Disconnected'}
               </Badge>
             </div>
 
-            <div className=flex items-center justify-between p-3 rounded bg-ueba-bg-deep border border-ueba-border>
-              <div className=flex items-center gap-3>
-                <div className={w-8 h-8 rounded-full flex items-center justify-center  + (health?.db_connected ? 'bg-emerald-500/20' : 'bg-red-500/20')}>
+            <div className="flex items-center justify-between p-3 rounded bg-ueba-bg-deep border border-ueba-border">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${health?.db_connected ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
                   {health?.db_connected
-                    ? <Database className=w-4 h-4 text-emerald-400 />
-                    : <XCircle className=w-4 h-4 text-ueba-accent-red />
+                    ? <Database className="w-4 h-4 text-emerald-400" />
+                    : <XCircle className="w-4 h-4 text-ueba-accent-red" />
                   }
                 </div>
                 <div>
-                  <p className=text-xs font-semibold text-ueba-text-primary>Database</p>
-                  <p className=text-[10px] text-ueba-text-muted>PostgreSQL backend</p>
+                  <p className="text-xs font-semibold text-ueba-text-primary">Database</p>
+                  <p className="text-[10px] text-ueba-text-muted">PostgreSQL backend</p>
                 </div>
               </div>
               <Badge variant={health?.db_connected ? 'success' : 'danger'}>
@@ -144,18 +146,18 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <div className=grid grid-cols-1 md:grid-cols-2 gap-4>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className=flex items-center gap-2 text-sm>
-              <Clock className=w-4 h-4 text-ueba-accent-yellow />
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Clock className="w-4 h-4 text-ueba-accent-yellow" />
               Last Sync
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className=text-lg font-semibold text-ueba-text-primary>{lastSync}</p>
-            <p className=text-xs text-ueba-text-muted mt-1>
-              {webhook?.total_events > 0
+            <p className="text-lg font-semibold text-ueba-text-primary">{lastSync}</p>
+            <p className="text-xs text-ueba-text-muted mt-1">
+              {webhook?.total_events && webhook.total_events > 0
                 ? webhook.total_events.toLocaleString() + ' total events processed'
                 : 'Awaiting first event'}
             </p>
@@ -164,16 +166,16 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className=flex items-center gap-2 text-sm>
-              <Shield className=w-4 h-4 text-ueba-accent-blue />
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Shield className="w-4 h-4 text-ueba-accent-blue" />
               API Version
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className=flex items-center gap-2>
-              <Badge variant=info>v{health?.version ?? '---'}</Badge>
-              <span className=text-xs text-ueba-text-muted>
-                Module: {health?.module ?? '---'}
+            <div className="flex items-center gap-2">
+              <Badge variant="info">v{health?.version ?? '-'}</Badge>
+              <span className="text-xs text-ueba-text-muted">
+                Module: {health?.module ?? '-'}
               </span>
             </div>
           </CardContent>
@@ -182,21 +184,21 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className=flex items-center gap-2 text-sm>
-            <Webhook className=w-4 h-4 text-ueba-accent-green />
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Webhook className="w-4 h-4 text-ueba-accent-green" />
             Webhook Status
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className=space-y-3>
-            <div className=flex items-center justify-between p-3 rounded bg-ueba-bg-deep border border-ueba-border>
-              <div className=flex items-center gap-3>
-                <div className={w-8 h-8 rounded-full flex items-center justify-center  + (webhook?.active ? 'bg-emerald-500/20' : 'bg-amber-500/20')}>
-                  <Webhook className={w-4 h-4  + (webhook?.active ? 'text-emerald-400' : 'text-amber-400')} />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 rounded bg-ueba-bg-deep border border-ueba-border">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center">
+                  <Webhook className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div>
-                  <p className=text-xs font-semibold text-ueba-text-primary>Wazuh Webhook</p>
-                  <p className=text-[10px] text-ueba-text-muted>Endpoint: /api/v1/webhook/wazuh</p>
+                  <p className="text-xs font-semibold text-ueba-text-primary">Wazuh Webhook</p>
+                  <p className="text-[10px] text-ueba-text-muted">Endpoint: /api/v1/webhook/wazuh</p>
                 </div>
               </div>
               <Badge variant={webhook?.active ? 'success' : 'warning'}>
@@ -204,16 +206,16 @@ export default function SettingsPage() {
               </Badge>
             </div>
 
-            <div className=grid grid-cols-2 gap-3>
-              <div className=p-3 rounded bg-ueba-bg-deep border border-ueba-border>
-                <p className=text-xs text-ueba-text-muted mb-1>Total Events Received</p>
-                <p className=text-xl font-bold text-ueba-text-primary>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded bg-ueba-bg-deep border border-ueba-border">
+                <p className="text-xs text-ueba-text-muted mb-1">Total Events Received</p>
+                <p className="text-xl font-bold text-ueba-text-primary">
                   {(webhook?.total_events ?? 0).toLocaleString()}
                 </p>
               </div>
-              <div className=p-3 rounded bg-ueba-bg-deep border border-ueba-border>
-                <p className=text-xs text-ueba-text-muted mb-1>Most Recent Event</p>
-                <p className=text-sm font-medium text-ueba-text-primary truncate title={lastSync}>
+              <div className="p-3 rounded bg-ueba-bg-deep border border-ueba-border">
+                <p className="text-xs text-ueba-text-muted mb-1">Most Recent Event</p>
+                <p className="text-sm font-medium text-ueba-text-primary truncate">
                   {webhook?.last_event
                     ? new Date(webhook.last_event).toLocaleString()
                     : 'N/A'}
