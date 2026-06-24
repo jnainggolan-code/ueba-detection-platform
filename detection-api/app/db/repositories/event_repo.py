@@ -63,3 +63,42 @@ class EventRepository:
             {"entity": row.entity, "count": row.count}
             for row in result.all()
         ]
+
+    async def find_all(
+        self,
+        offset: int = 0,
+        limit: int = 25,
+        source: str | None = None,
+        entity: str | None = None,
+        event_type: str | None = None,
+        search: str | None = None,
+    ) -> tuple[list[LogsRaw], int]:
+        """Return paginated list of events + total count with optional filters."""
+        query = select(LogsRaw).order_by(LogsRaw.time.desc())
+
+        if source:
+            query = query.where(LogsRaw.source == source)
+        if entity:
+            query = query.where(LogsRaw.raw_payload["entity_id"].as_string() == entity)
+        if event_type:
+            query = query.where(LogsRaw.raw_payload["event_type"].as_string() == event_type)
+        if search:
+            pattern = f"%{search}%"
+            query = query.where(LogsRaw.raw_payload["search_field"].as_string().ilike(pattern))
+
+        # Count total first
+        count_q = select(func.count()).select_from(query.subquery())
+        total = (await self.session.execute(count_q)).scalar() or 0
+
+        # Paginate
+        query = query.offset(offset).limit(limit)
+        result = await self.session.execute(query)
+        items = list(result.scalars().all())
+        return items, total
+
+    async def find_by_id(self, event_id: int) -> LogsRaw | None:
+        """Find a single event by its id."""
+        result = await self.session.execute(
+            select(LogsRaw).where(LogsRaw.id == event_id)
+        )
+        return result.scalar_one_or_none()
