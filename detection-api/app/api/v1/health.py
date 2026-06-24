@@ -25,14 +25,3 @@ async def health_check() -> dict:
         "db_connected": db_status.get("db_connected", False),
     }
 
-
-@router.get("/stats", response_model=StatsResponse)
-async def get_stats(
-    session: AsyncSession = Depends(get_db_session),
-) -> dict:
-    """Return aggregate event statistics.
-
-    Includes total event count, breakdown by source, and by entity.
-    """
-    service = EventService(session)
-    return await service.get_stats()
