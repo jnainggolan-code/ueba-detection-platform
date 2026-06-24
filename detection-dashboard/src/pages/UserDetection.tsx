@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Users, AlertTriangle, History, Shield, Activity } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -7,37 +7,117 @@ import { Button } from '@/components/ui/Button';
 import { PageLoading } from '@/components/shared/LoadingSpinner';
 import { MetricCard } from '@/components/shared/MetricCard';
 import { formatTimestamp, riskScoreColor, truncate } from '@/lib/utils';
-import type { DetectionEvent } from '@/lib/api';
+import { getAlerts, getEntityDetections, getStats, type DetectionEvent, type Alert, type Stats } from '@/lib/api';
 
-// Mock data — API will connect in Phase 2
-const MOCK_ENTITIES = [
-  { name: 'john.doe', risk_score: 87, department: 'Engineering', events_count: 1243, anomalies: 5, last_seen: new Date().toISOString(), status: 'critical' as const },
-  { name: 'jane.smith', risk_score: 65, department: 'Finance', events_count: 876, anomalies: 2, last_seen: new Date().toISOString(), status: 'warning' as const },
-  { name: 'svc-backup', risk_score: 92, department: 'System', events_count: 3402, anomalies: 8, last_seen: new Date().toISOString(), status: 'critical' as const },
-  { name: 'mike.wilson', risk_score: 34, department: 'HR', events_count: 456, anomalies: 0, last_seen: new Date(Date.now() - 86400000).toISOString(), status: 'normal' as const },
-  { name: 'api-gateway', risk_score: 78, department: 'Infrastructure', events_count: 8901, anomalies: 3, last_seen: new Date().toISOString(), status: 'warning' as const },
-  { name: 'sarah.connor', risk_score: 45, department: 'Security', events_count: 678, anomalies: 1, last_seen: new Date(Date.now() - 3600000).toISOString(), status: 'normal' as const },
-  { name: 'db-readonly', risk_score: 22, department: 'Database', events_count: 2341, anomalies: 0, last_seen: new Date(Date.now() - 7200000).toISOString(), status: 'normal' as const },
-  { name: 'devops-bot', risk_score: 81, department: 'DevOps', events_count: 5621, anomalies: 4, last_seen: new Date().toISOString(), status: 'critical' as const },
-];
-
-const MOCK_RECENT_EVENTS: DetectionEvent[] = [
-  { id: 'e-001', timestamp: new Date().toISOString(), source: 'windows', entity: 'john.doe', event_type: 'privilege_escalation', risk_score: 92, details: { process: 'powershell.exe', parent: 'explorer.exe', user: 'john.doe', command_line: '-EncodedCommand SQBFAFgA' }, raw_data: '' },
-  { id: 'e-002', timestamp: new Date(Date.now() - 60000).toISOString(), source: 'network', entity: 'svc-backup', event_type: 'data_exfiltration', risk_score: 88, details: { destination: '185.220.101.x', bytes: '1.2GB', protocol: 'SFTP', port: 22 }, raw_data: '' },
-  { id: 'e-003', timestamp: new Date(Date.now() - 180000).toISOString(), source: 'cloud', entity: 'api-gateway', event_type: 'authentication', risk_score: 72, details: { location: 'RU', failed_attempts: 23, ip: '91.108.56.x', method: 'API_KEY' }, raw_data: '' },
-];
+interface EntitySummary {
+  name: string;
+  risk_score: number;
+  department: string;
+  events_count: number;
+  anomalies: number;
+  last_seen: string;
+  status: 'critical' | 'warning' | 'normal';
+}
 
 export default function UserDetection() {
   const [selectedEntity, setSelectedEntity] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [entities, setEntities] = useState<EntitySummary[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const filteredEntities = MOCK_ENTITIES.filter((e) =>
+  // Entity detail state
+  const [entityDetail, setEntityDetail] = useState<{
+    risk_score: number;
+    department: string;
+    recent_events: DetectionEvent[];
+    anomalies: { anomaly_type: string; severity: string; score: number; description: string | null; timestamp: string }[];
+    first_seen: string | null;
+    last_seen: string | null;
+  } | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // Fetch entities from alerts + stats on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [alertsResult, statsResult] = await Promise.all([
+          getAlerts({ page: 1, limit: 100 }),
+          getStats(),
+        ]);
+        setStats(statsResult);
+
+        // Build entity list from alerts
+        const entityMap = new Map<string, { risk_score: number; anomalies: number; last_seen: string }>();
+        alertsResult.data.forEach((alert: Alert) => {
+          const existing = entityMap.get(alert.entity);
+          if (existing) {
+            existing.anomalies += 1;
+            existing.risk_score = Math.max(existing.risk_score, alert.risk_score);
+            if (new Date(alert.created_at) > new Date(existing.last_seen)) {
+              existing.last_seen = alert.created_at;
+            }
+          } else {
+            entityMap.set(alert.entity, {
+              risk_score: alert.risk_score,
+              anomalies: 1,
+              last_seen: alert.created_at,
+            });
+          }
+        });
+
+        const entityList: EntitySummary[] = Array.from(entityMap.entries()).map(([name, data]) => ({
+          name,
+          risk_score: data.risk_score,
+          department: 'Unknown',
+          events_count: 0,
+          anomalies: data.anomalies,
+          last_seen: data.last_seen,
+          status: data.risk_score >= 70 ? 'critical' : data.risk_score >= 40 ? 'warning' : 'normal',
+        }));
+
+        setEntities(entityList);
+      } catch (err) {
+        console.error('Failed to fetch entity data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Fetch entity detail when selected
+  useEffect(() => {
+    if (!selectedEntity) {
+      setEntityDetail(null);
+      return;
+    }
+    const fetchDetail = async () => {
+      setDetailLoading(true);
+      setEntityDetail(null);
+      try {
+        const data = await getEntityDetections(selectedEntity);
+        setEntityDetail({
+          risk_score: data.risk_score,
+          department: (data as any).department || 'Unknown',
+          recent_events: data.recent_events || [],
+          anomalies: data.anomalies || [],
+          first_seen: (data as any).first_seen || null,
+          last_seen: (data as any).last_seen || null,
+        });
+      } catch (err) {
+        console.error(`Failed to fetch entity detail for ${selectedEntity}`, err);
+      } finally {
+        setDetailLoading(false);
+      }
+    };
+    fetchDetail();
+  }, [selectedEntity]);
+
+  const filteredEntities = entities.filter((e) =>
     e.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const entityDetail = selectedEntity
-    ? MOCK_ENTITIES.find((e) => e.name === selectedEntity)
-    : null;
 
   const statusConfig = {
     critical: { color: 'text-ueba-accent-red', bg: 'bg-red-500/10', dot: 'bg-ueba-accent-red' },
@@ -45,39 +125,37 @@ export default function UserDetection() {
     normal: { color: 'text-ueba-accent-green', bg: 'bg-emerald-500/10', dot: 'bg-ueba-accent-green' },
   };
 
+  if (loading) {
+    return <PageLoading />;
+  }
+
   return (
     <div className="space-y-6">
-      {/* Summary cards */}
+      {/* Summary cards — from API */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="Total Entities"
-          value={MOCK_ENTITIES.length}
-          accent="blue"
-          icon={<Users />}
-          subtitle="Monitored entities"
-        />
+        <MetricCard title="Total Entities" value={entities.length} accent="blue" icon={<Users />} subtitle="Monitored entities" />
         <MetricCard
           title="At Risk"
-          value={MOCK_ENTITIES.filter((e) => e.status !== 'normal').length}
+          value={entities.filter((e) => e.status !== 'normal').length}
           accent="red"
           icon={<AlertTriangle />}
           trend="up"
-          trendValue="+3 from yesterday"
+          trendValue="+"
         />
         <MetricCard
           title="Anomalies Detected"
-          value={MOCK_ENTITIES.reduce((sum, e) => sum + e.anomalies, 0)}
+          value={entities.reduce((sum, e) => sum + e.anomalies, 0)}
           accent="yellow"
           icon={<Activity />}
-          subtitle="Last 24 hours"
+          subtitle="Total anomalies"
         />
         <MetricCard
           title="Avg Risk Score"
-          value={(MOCK_ENTITIES.reduce((sum, e) => sum + e.risk_score, 0) / MOCK_ENTITIES.length).toFixed(0)}
+          value={entities.length > 0 ? (entities.reduce((sum, e) => sum + e.risk_score, 0) / entities.length).toFixed(0) : '0'}
           accent="green"
           icon={<Shield />}
           trend="up"
-          trendValue="+5.2"
+          trendValue="-"
         />
       </div>
 
@@ -124,7 +202,7 @@ export default function UserDetection() {
 
         {/* Entity detail view */}
         <div className="lg:col-span-2 space-y-4">
-          {entityDetail ? (
+          {selectedEntity && entityDetail ? (
             <>
               {/* Entity header */}
               <Card>
@@ -135,8 +213,10 @@ export default function UserDetection() {
                         <Users className="w-6 h-6 text-ueba-accent-blue" />
                       </div>
                       <div>
-                        <h2 className="text-lg font-bold text-ueba-text-primary">{entityDetail.name}</h2>
-                        <p className="text-xs text-ueba-text-muted">{entityDetail.department} · {entityDetail.events_count.toLocaleString()} events</p>
+                        <h2 className="text-lg font-bold text-ueba-text-primary">{selectedEntity}</h2>
+                        <p className="text-xs text-ueba-text-muted">
+                          {entityDetail.department} · {entityDetail.recent_events.length + entityDetail.anomalies.length} events
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -147,17 +227,17 @@ export default function UserDetection() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Badge variant={entityDetail.status === 'critical' ? 'danger' : entityDetail.status === 'warning' ? 'warning' : 'success'}>
-                      {entityDetail.status}
+                    <Badge variant={entityDetail.risk_score >= 70 ? 'danger' : entityDetail.risk_score >= 40 ? 'warning' : 'success'}>
+                      {entityDetail.risk_score >= 70 ? 'critical' : entityDetail.risk_score >= 40 ? 'warning' : 'normal'}
                     </Badge>
                     <Badge variant="info">{entityDetail.department}</Badge>
-                    <Badge variant="default">{entityDetail.anomalies} anomalies</Badge>
+                    <Badge variant="default">{entityDetail.anomalies.length} anomalies</Badge>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Anomaly markers */}
-              {entityDetail.anomalies > 0 && (
+              {entityDetail.anomalies.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -167,28 +247,22 @@ export default function UserDetection() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {MOCK_RECENT_EVENTS.filter((e) => e.entity === entityDetail.name).length > 0 ? (
-                        MOCK_RECENT_EVENTS.filter((e) => e.entity === entityDetail.name).map((event) => (
-                          <div key={event.id} className="flex items-center justify-between p-2 rounded bg-ueba-bg-deep border border-ueba-border">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-2 h-2 rounded-full ${event.risk_score >= 80 ? 'bg-ueba-accent-red' : 'bg-ueba-accent-yellow'}`} />
-                              <div>
-                                <p className="text-xs text-ueba-text-primary font-medium">
-                                  {event.event_type.replace(/_/g, ' ')}
-                                </p>
-                                <p className="text-[10px] text-ueba-text-muted">{formatTimestamp(event.timestamp)}</p>
-                              </div>
+                      {entityDetail.anomalies.map((anomaly, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded bg-ueba-bg-deep border border-ueba-border">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${anomaly.severity === 'critical' ? 'bg-ueba-accent-red' : anomaly.severity === 'high' ? 'bg-orange-500' : 'bg-ueba-accent-yellow'}`} />
+                            <div>
+                              <p className="text-xs text-ueba-text-primary font-medium">
+                                {anomaly.anomaly_type.replace(/_/g, ' ')}
+                              </p>
+                              <p className="text-[10px] text-ueba-text-muted">{anomaly.description || anomaly.timestamp}</p>
                             </div>
-                            <span className={`text-xs font-mono font-bold ${riskScoreColor(event.risk_score)}`}>
-                              {event.risk_score}
-                            </span>
                           </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-ueba-text-muted text-center py-2">
-                          Recent events for this entity will appear here
-                        </p>
-                      )}
+                          <span className={`text-xs font-mono font-bold ${riskScoreColor(anomaly.score * 10)}`}>
+                            {Math.round(anomaly.score * 10)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -204,29 +278,37 @@ export default function UserDetection() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {MOCK_RECENT_EVENTS.map((event) => (
-                      <div key={event.id} className="flex items-center justify-between p-3 rounded bg-ueba-bg-deep border border-ueba-border">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <Badge variant="info">{event.source}</Badge>
-                          <div className="min-w-0">
-                            <p className="text-xs text-ueba-text-primary font-medium truncate">
-                              {event.event_type.replace(/_/g, ' ')}
-                            </p>
-                            <p className="text-[10px] text-ueba-text-muted">{truncate(JSON.stringify(event.details), 40)}</p>
+                    {entityDetail.recent_events.length > 0 ? (
+                      entityDetail.recent_events.map((event) => (
+                        <div key={event.id} className="flex items-center justify-between p-3 rounded bg-ueba-bg-deep border border-ueba-border">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Badge variant="info">{event.source}</Badge>
+                            <div className="min-w-0">
+                              <p className="text-xs text-ueba-text-primary font-medium truncate">
+                                {event.event_type.replace(/_/g, ' ')}
+                              </p>
+                              <p className="text-[10px] text-ueba-text-muted">{truncate(JSON.stringify(event.details), 40)}</p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0 ml-2">
+                            <span className={`text-xs font-mono font-bold ${riskScoreColor(event.risk_score)}`}>
+                              {event.risk_score}
+                            </span>
+                            <p className="text-[10px] text-ueba-text-muted">{formatTimestamp(event.timestamp)}</p>
                           </div>
                         </div>
-                        <div className="text-right flex-shrink-0 ml-2">
-                          <span className={`text-xs font-mono font-bold ${riskScoreColor(event.risk_score)}`}>
-                            {event.risk_score}
-                          </span>
-                          <p className="text-[10px] text-ueba-text-muted">{formatTimestamp(event.timestamp)}</p>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-xs text-ueba-text-muted text-center py-4">
+                        No recent events for this entity
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             </>
+          ) : selectedEntity && detailLoading ? (
+            <PageLoading />
           ) : (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-16">

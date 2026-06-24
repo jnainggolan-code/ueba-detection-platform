@@ -29,9 +29,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { MetricCard } from '@/components/shared/MetricCard';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
-import { useMockStats } from '@/hooks/useStats';
+import { PageLoading } from '@/components/shared/LoadingSpinner';
+import { useStats } from '@/hooks/useStats';
 
-// Mock chart data
+// Fallback mock for chart shapes when API data isn't available yet
 const eventTrendData = [
   { hour: '00:00', events: 120, alerts: 3 },
   { hour: '01:00', events: 85, alerts: 1 },
@@ -127,13 +128,17 @@ function PieTooltip({ active, payload }: any) {
 }
 
 export default function RiskDashboard() {
-  const mockStats = useMockStats();
+  const { stats, loading, error } = useStats();
   const [timeRange, setTimeRange] = useState('24h');
 
   const totalAnomalies = useMemo(
     () => eventTrendData.reduce((sum, h) => sum + h.alerts, 0),
     []
   );
+
+  if (loading) {
+    return <PageLoading />;
+  }
 
   return (
     <div className="space-y-6">
@@ -147,18 +152,18 @@ export default function RiskDashboard() {
         />
       </div>
 
-      {/* Metric cards row */}
+      {/* Metric cards row — data from API */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <MetricCard
           title="Total Events"
-          value={mockStats.total_events.toLocaleString()}
+          value={(stats?.total_events ?? 0).toLocaleString()}
           accent="blue"
           icon={<Activity />}
           subtitle="All time"
         />
         <MetricCard
           title="Active Alerts"
-          value={mockStats.active_alerts}
+          value={stats?.active_alerts ?? 0}
           accent="red"
           icon={<AlertTriangle />}
           trend="up"
@@ -166,14 +171,14 @@ export default function RiskDashboard() {
         />
         <MetricCard
           title="Critical Alerts"
-          value={mockStats.critical_alerts}
+          value={stats?.critical_alerts ?? 0}
           accent="red"
           icon={<Zap />}
           subtitle="Requires immediate action"
         />
         <MetricCard
           title="Entities at Risk"
-          value={mockStats.entities_at_risk}
+          value={stats?.entities_at_risk ?? 0}
           accent="yellow"
           icon={<Users />}
           trend="up"
@@ -181,14 +186,14 @@ export default function RiskDashboard() {
         />
         <MetricCard
           title="Avg Risk Score"
-          value={mockStats.avg_risk_score}
+          value={stats?.avg_risk_score ?? 0}
           accent="green"
           icon={<Shield />}
           trendValue="Moderate"
         />
         <MetricCard
           title="Events/hr"
-          value={mockStats.events_last_hour.toLocaleString()}
+          value={(stats?.events_last_hour ?? 0).toLocaleString()}
           accent="purple"
           icon={<TrendingUp />}
           subtitle="Last hour"
@@ -417,35 +422,35 @@ export default function RiskDashboard() {
                   <span className="status-dot active" />
                   <span className="text-xs text-ueba-text-secondary">Data Pipeline</span>
                 </div>
-                <span className="text-xs text-ueba-accent-green font-medium">89.2K evts/sec</span>
+                <span className="text-xs text-ueba-accent-green font-medium">{(stats?.events_last_hour ?? 0).toLocaleString()} evts/hr</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="status-dot warning" />
                   <span className="text-xs text-ueba-text-secondary">ML Model</span>
                 </div>
-                <span className="text-xs text-ueba-accent-yellow font-medium">99.2% uptime</span>
+                <span className="text-xs text-ueba-accent-yellow font-medium">Active</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="status-dot active" />
                   <span className="text-xs text-ueba-text-secondary">Storage</span>
                 </div>
-                <span className="text-xs text-ueba-accent-green font-medium">2.1 TB / 5 TB</span>
+                <span className="text-xs text-ueba-accent-green font-medium">{(stats?.total_events ?? 0).toLocaleString()} events</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="status-dot warning" />
                   <span className="text-xs text-ueba-text-secondary">Alert Queue</span>
                 </div>
-                <span className="text-xs text-ueba-accent-yellow font-medium">47 pending</span>
+                <span className="text-xs text-ueba-accent-yellow font-medium">{stats?.active_alerts ?? 0} pending</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="status-dot critical" />
-                  <span className="text-xs text-ueba-text-secondary">Rule Engine</span>
+                  <span className="text-xs text-ueba-text-secondary">Critical Alerts</span>
                 </div>
-                <span className="text-xs text-ueba-accent-red font-medium">3 failures</span>
+                <span className="text-xs text-ueba-accent-red font-medium">{stats?.critical_alerts ?? 0}</span>
               </div>
             </div>
 
