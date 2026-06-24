@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { Search, Filter, AlertTriangle } from 'lucide-react';
 import { useEvents } from '@/hooks/useEvents';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -72,8 +72,8 @@ export default function LogViewer() {
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <span className="text-ueba-text-muted ml-1">↕</span>;
-    return <span className="text-ueba-accent-blue ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>;
+    if (sortField !== field) return <span className="text-ueba-text-muted ml-1">{'\u2195'}</span>;
+    return <span className="text-ueba-accent-blue ml-1">{sortDir === 'asc' ? '\u2191' : '\u2193'}</span>;
   };
 
   if (error) {
@@ -179,90 +179,91 @@ export default function LogViewer() {
                 </tr>
               ) : (
                 sortedEvents.map((event) => (
-                  <tr
-                    key={event.id}
-                    className="hover:bg-ueba-cardhover/50 transition-colors cursor-pointer"
-                    onClick={() => setSelectedEvent(selectedEvent?.id === event.id ? null : event)}
-                  >
-                    <td className="px-4 py-3">
-                      <span className="text-xs text-ueba-text-secondary font-mono">
-                        {formatTimestamp(event.timestamp)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="info">{event.source}</Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-ueba-text-primary font-medium">{event.entity}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs text-ueba-text-secondary">{event.event_type.replace(/_/g, ' ')}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-sm font-mono font-bold ${riskScoreColor(event.risk_score)}`}>
-                        {event.risk_score.toFixed(0)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs text-ueba-text-muted">
-                        {truncate(JSON.stringify(event.details), 60)}
-                      </span>
-                    </td>
-                  </tr>
+                  <Fragment key={event.id}>
+                    <tr
+                      className="hover:bg-ueba-cardhover/50 transition-colors cursor-pointer"
+                      onClick={() => setSelectedEvent(selectedEvent?.id === event.id ? null : event)}
+                    >
+                      <td className="px-4 py-3">
+                        <span className="text-xs text-ueba-text-secondary font-mono">
+                          {formatTimestamp(event.timestamp)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant="info">{event.source}</Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-ueba-text-primary font-medium">{event.entity}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs text-ueba-text-secondary">{event.event_type.replace(/_/g, ' ')}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-sm font-mono font-bold ${riskScoreColor(event.risk_score)}`}>
+                          {event.risk_score.toFixed(0)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs text-ueba-text-muted">
+                          {truncate(JSON.stringify(event.details), 60)}
+                        </span>
+                      </td>
+                    </tr>
+                    {selectedEvent?.id === event.id && (
+                      <tr className="bg-ueba-bg-deep">
+                        <td colSpan={6} className="px-4 py-4 border-t border-ueba-border">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <h4 className="text-xs font-semibold text-ueba-text-muted uppercase tracking-wider mb-2">
+                                Event Details
+                              </h4>
+                              <div className="space-y-2">
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-ueba-text-muted">ID</span>
+                                  <span className="text-xs text-ueba-text-secondary font-mono">{event.id}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-ueba-text-muted">Timestamp</span>
+                                  <span className="text-xs text-ueba-text-secondary">{formatTimestamp(event.timestamp)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-ueba-text-muted">Source</span>
+                                  <span className="text-xs text-ueba-text-secondary">{event.source}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-ueba-text-muted">Entity</span>
+                                  <span className="text-xs text-ueba-text-secondary">{event.entity}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-ueba-text-muted">Event Type</span>
+                                  <span className="text-xs text-ueba-text-secondary">{event.event_type}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-xs text-ueba-text-muted">Risk Score</span>
+                                  <span className={`text-xs font-mono font-bold ${riskScoreColor(event.risk_score)}`}>
+                                    {event.risk_score.toFixed(1)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-semibold text-ueba-text-muted uppercase tracking-wider mb-2">
+                                Raw Data
+                              </h4>
+                              <pre className="bg-ueba-card border border-ueba-border rounded p-3 text-xs text-ueba-text-secondary font-mono overflow-x-auto max-h-48">
+                                {JSON.stringify(event.details, null, 2)}
+                              </pre>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))
               )}
             </tbody>
           </table>
         </div>
-
-        {/* Expanded detail row */}
-        {selectedEvent && (
-          <div className="border-t border-ueba-border bg-ueba-bg-deep p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-xs font-semibold text-ueba-text-muted uppercase tracking-wider mb-2">
-                  Event Details
-                </h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-xs text-ueba-text-muted">ID</span>
-                    <span className="text-xs text-ueba-text-secondary font-mono">{selectedEvent.id}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-ueba-text-muted">Timestamp</span>
-                    <span className="text-xs text-ueba-text-secondary">{formatTimestamp(selectedEvent.timestamp)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-ueba-text-muted">Source</span>
-                    <span className="text-xs text-ueba-text-secondary">{selectedEvent.source}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-ueba-text-muted">Entity</span>
-                    <span className="text-xs text-ueba-text-secondary">{selectedEvent.entity}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-ueba-text-muted">Event Type</span>
-                    <span className="text-xs text-ueba-text-secondary">{selectedEvent.event_type}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-ueba-text-muted">Risk Score</span>
-                    <span className={`text-xs font-mono font-bold ${riskScoreColor(selectedEvent.risk_score)}`}>
-                      {selectedEvent.risk_score.toFixed(1)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h4 className="text-xs font-semibold text-ueba-text-muted uppercase tracking-wider mb-2">
-                  Raw Data
-                </h4>
-                <pre className="bg-ueba-bg-deep border border-ueba-border rounded p-3 text-xs text-ueba-text-secondary font-mono overflow-x-auto max-h-48">
-                  {JSON.stringify(selectedEvent.details, null, 2)}
-                </pre>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="border-t border-ueba-border p-4">
           <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={goToPage} />
