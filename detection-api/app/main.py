@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.logging import setup_logging
+from app.middleware.rate_limiter import RateLimitMiddleware
 from app.api.v1 import events as events_v1
 from app.api.v1 import health as health_v1
 from app.api.v1 import stats as stats_v1
@@ -44,6 +45,13 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+
+    # Rate Limiter
+    app.add_middleware(
+        RateLimitMiddleware,
+        max_requests=100,
+        window_seconds=60,
     )
 
     # Register routers
