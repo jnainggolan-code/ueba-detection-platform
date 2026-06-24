@@ -83,12 +83,17 @@ class EventRepository:
         if event_type:
             query = query.where(LogsRaw.raw_payload["event_type"].as_string() == event_type)
         if search:
-            pattern = f"%{search}%"
-            from sqlalchemy import cast, String
-            # Search entire raw_payload JSONB as text (covers all fields incl. details)
-            query = query.where(
-                cast(LogsRaw.raw_payload, String).ilike(pattern)
-            )
+            from sqlalchemy import cast, String, and_
+            from functools import reduce
+            # Multiple keyword search — split by spaces, AND logic
+            keywords = [kw.strip() for kw in search.split() if kw.strip()]
+            conditions = []
+            for kw in keywords:
+                pattern = f"%{kw}%"
+                kw_cond = cast(LogsRaw.raw_payload, String).ilike(pattern)
+                conditions.append(kw_cond)
+            if conditions:
+                query = query.where(reduce(and_, conditions))
 
         # Count total first
         count_q = select(func.count()).select_from(query.subquery())

@@ -116,7 +116,7 @@ export default function LogViewer() {
               <label className="block text-xs text-ueba-text-muted mb-1">Search</label>
               <Input
                 icon={<Search className="w-4 h-4" />}
-                placeholder="Search by entity, source, details..."
+                placeholder="Search keywords... (e.g.: wazuh sshd)"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={handleKeyDown}
