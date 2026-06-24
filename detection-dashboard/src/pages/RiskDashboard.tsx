@@ -117,10 +117,14 @@ export default function RiskDashboard() {
   const { stats, loading, error } = useStats(timeRange);
 
   const chartData = stats?.event_trend || eventTrendData;
+  const wibChartData = chartData.map(d => ({
+    ...d,
+    hour: ((parseInt(d.hour.split(':')[0]) + 7) % 24).toString().padStart(2, '0') + ':00'
+  }));
   const chartEventTypeData = stats?.event_type_distribution?.length ? stats.event_type_distribution : eventTypeData;
   const totalAnomalies = useMemo(
-    () => chartData.reduce((sum: number, h: { hour: string; events: number; alerts: number }) => sum + h.alerts, 0),
-    [chartData]
+    () => wibChartData.reduce((sum: number, h: { hour: string; events: number; alerts: number }) => sum + h.alerts, 0),
+    [wibChartData]
   );
 
   if (loading) {
@@ -200,7 +204,7 @@ export default function RiskDashboard() {
           <CardContent>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
+                <AreaChart data={wibChartData}>
                   <defs>
                     <linearGradient id="eventsGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={chartColours.blue} stopOpacity={0.3} />
