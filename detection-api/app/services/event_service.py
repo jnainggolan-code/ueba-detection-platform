@@ -1,5 +1,6 @@
 """Event service — business logic for event ingestion with anomaly detection orchestration."""
 import json
+import asyncio
 import logging
 from datetime import datetime, timezone
 import re
@@ -35,38 +36,41 @@ from app.services.risk_scoring import RiskScoringService
 
 logger = logging.getLogger(__name__)
 
+# Max concurrent background pipeline tasks
+_pipeline_semaphore = asyncio.Semaphore(5)
+
 
 async def _run_engine_pipeline(session_factory, event: LogsRaw) -> None:
     """Background task: run anomaly detection + risk scoring for an event."""
-    try:
-        async with session_factory() as session:
-            # Refresh the event in the new session context
-            merged = await session.merge(event)
-            detector = AnomalyDetector(session)
-            scorer = RiskScoringService(session)
+    async with _pipeline_semaphore:
+        try:
+            async with session_factory() as session:
+                # Refresh the event in the new session context
+                merged = await session.merge(event)
+                detector = AnomalyDetector(session)
+                scorer = RiskScoringService(session)
 
-            # Step 1: Detect anomalies
-            anomalies = await detector.detect_anomalies(merged)
-            if anomalies:
-                logger.info(
-                    "Detected %d anomalies for event id=%s",
-                    len(anomalies), merged.id
+                # Step 1: Detect anomalies
+                anomalies = await detector.detect_anomalies(merged)
+                if anomalies:
+                    logger.info(
+                        "Detected %d anomalies for event id=%s",
+                        len(anomalies), merged.id
+                    )
+
+                # Step 2: Update risk score
+                risk_result = await scorer.update_risk_score(merged)
+                logger.debug(
+                    "Risk score updated for event id=%s: score=%s",
+                    merged.id, risk_result.get("overall_score")
                 )
 
-            # Step 2: Update risk score
-            risk_result = await scorer.update_risk_score(merged)
-            logger.debug(
-                "Risk score updated for event id=%s: score=%s",
-                merged.id, risk_result.get("overall_score")
+                await session.commit()
+        except Exception as exc:
+            logger.error(
+                "Engine pipeline failed for event id=%s: %s",
+                event.id, exc, exc_info=True
             )
-
-            await session.commit()
-    except Exception as exc:
-        logger.error(
-            "Engine pipeline failed for event id=%s: %s",
-            event.id, exc, exc_info=True
-        )
-
 
 class EventService:
     """Service layer for event ingestion operations."""
@@ -98,9 +102,9 @@ class EventService:
 
         # Schedule background engine pipeline
         if background_tasks:
-            from app.db.session import async_session_factory
+            from app.db.session import background_session_factory
             background_tasks.add_task(
-                _run_engine_pipeline, async_session_factory, created
+                _run_engine_pipeline, background_session_factory, created
             )
 
         return {"id": created.id, "status": "stored", "source": source}
@@ -130,10 +134,10 @@ class EventService:
 
         # Schedule background engine pipeline for each event
         if background_tasks:
-            from app.db.session import async_session_factory
+            from app.db.session import background_session_factory
             for evt in events:
                 background_tasks.add_task(
-                    _run_engine_pipeline, async_session_factory, evt
+                    _run_engine_pipeline, background_session_factory, evt
                 )
 
         return {"count": count, "status": "stored", "source": source}
@@ -157,9 +161,9 @@ class EventService:
         created = await self.repo.insert_one(event)
 
         if background_tasks:
-            from app.db.session import async_session_factory
+            from app.db.session import background_session_factory
             background_tasks.add_task(
-                _run_engine_pipeline, async_session_factory, created
+                _run_engine_pipeline, background_session_factory, created
             )
 
         return {"id": created.id, "status": "stored", "source": source}
@@ -183,9 +187,9 @@ class EventService:
         created = await self.repo.insert_one(event)
 
         if background_tasks:
-            from app.db.session import async_session_factory
+            from app.db.session import background_session_factory
             background_tasks.add_task(
-                _run_engine_pipeline, async_session_factory, created
+                _run_engine_pipeline, background_session_factory, created
             )
 
         return {"id": created.id, "status": "stored", "source": source}
@@ -279,9 +283,9 @@ class EventService:
         created = await self.repo.insert_one(event)
 
         if background_tasks:
-            from app.db.session import async_session_factory
+            from app.db.session import background_session_factory
             background_tasks.add_task(
-                _run_engine_pipeline, async_session_factory, created
+                _run_engine_pipeline, background_session_factory, created
             )
 
         return {"id": created.id, "status": "stored", "source": source}
