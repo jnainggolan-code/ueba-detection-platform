@@ -10,6 +10,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.session import get_db_session
 from app.models.event import Base
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, DateTime
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/alerts", tags=["Alerts"])
@@ -28,12 +30,12 @@ class AnomalyDetection(Base):
     score: Mapped[float]
     z_score: Mapped[Optional[float]]
     description: Mapped[Optional[str]]
-    evidence: Mapped[Optional[dict]]
+    evidence = Column(JSONB, nullable=True)
     mitre_technique: Mapped[Optional[str]]
     mitre_tactic: Mapped[Optional[str]]
     status: Mapped[str] = mapped_column(default="open")
     assigned_to: Mapped[Optional[str]]
-    time: Mapped[str]
+    time = Column(DateTime(timezone=True), nullable=False)
 
 
 class Entity(Base):
@@ -47,7 +49,7 @@ class Entity(Base):
     entity_type: Mapped[str]
 
 
-@router.get("/alerts")
+@router.get("")
 async def list_alerts(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),

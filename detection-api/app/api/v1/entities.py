@@ -10,6 +10,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.session import get_db_session
 from app.models.event import Base, LogsRaw
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY
+from sqlalchemy import Text, Column, DateTime
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/entities", tags=["Entities"])
@@ -24,13 +26,13 @@ class Entity(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     entity_type: Mapped[str]
     entity_value: Mapped[str]
-    first_seen: Mapped[Optional[str]]
-    last_seen: Mapped[Optional[str]]
-    profile_metadata: Mapped[Optional[dict]]
+    first_seen = Column(DateTime(timezone=True), nullable=True)
+    last_seen = Column(DateTime(timezone=True), nullable=True)
+    profile_metadata = Column(JSONB, nullable=True)
     risk_score: Mapped[float] = mapped_column(default=0.0)
     risk_level: Mapped[str] = mapped_column(default="low")
-    risk_factors: Mapped[Optional[dict]]
-    tags: Mapped[Optional[list]]
+    risk_factors = Column(JSONB, nullable=True)
+    tags = Column(ARRAY(Text()), nullable=True)
 
 
 class AnomalyDetection(Base):
@@ -46,7 +48,7 @@ class AnomalyDetection(Base):
     score: Mapped[float]
     description: Mapped[Optional[str]]
     status: Mapped[str] = mapped_column(default="open")
-    time: Mapped[str]
+    time = Column(DateTime(timezone=True), nullable=False)
 
 
 @router.get("/{entity_value}")
