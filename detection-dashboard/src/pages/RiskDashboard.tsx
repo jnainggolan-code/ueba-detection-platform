@@ -131,9 +131,10 @@ export default function RiskDashboard() {
   const { stats, loading, error } = useStats();
   const [timeRange, setTimeRange] = useState('24h');
 
+  const chartData = stats?.event_trend || eventTrendData;
   const totalAnomalies = useMemo(
-    () => eventTrendData.reduce((sum, h) => sum + h.alerts, 0),
-    []
+    () => chartData.reduce((sum: number, h: { hour: string; events: number; alerts: number }) => sum + h.alerts, 0),
+    [chartData]
   );
 
   if (loading) {
@@ -213,7 +214,7 @@ export default function RiskDashboard() {
           <CardContent>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={eventTrendData}>
+                <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="eventsGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={chartColours.blue} stopOpacity={0.3} />
@@ -308,7 +309,7 @@ export default function RiskDashboard() {
           <CardContent>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
+                <PieChart data={stats?.event_type_distribution?.length ? stats.event_type_distribution : eventTypeData}>
                   <Pie
                     data={eventTypeData}
                     cx="50%"
@@ -373,7 +374,7 @@ export default function RiskDashboard() {
           <CardContent>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={alertSeverityData}>
+                <BarChart data={stats?.alert_severity?.length ? stats.alert_severity : alertSeverityData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                   <XAxis dataKey="severity" stroke="#64748b" tick={{ fontSize: 10 }} />
                   <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
