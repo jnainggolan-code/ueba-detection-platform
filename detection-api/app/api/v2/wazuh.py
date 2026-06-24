@@ -21,7 +21,7 @@ async def post_wazuh_v2(
     payload: dict,
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session),
-) -> dict | JSONResponse:
+) -> dict:
     """Ingest Wazuh-native alert format with anomaly detection pipeline."""
     # 1. Compute SHA256 hash from sorted JSON payload
     payload_str = json.dumps(payload, sort_keys=True)
