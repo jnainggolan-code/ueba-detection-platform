@@ -4,7 +4,7 @@
 # Port:      5433
 # =============================================================================
 
-FROM timescale/timescaledb:2-pg16
+FROM timescale/timescaledb:latest-pg16
 
 # Copy initialization scripts
 # init.sql akan di-execute otomatis oleh TimescaleDB saat container pertama kali start

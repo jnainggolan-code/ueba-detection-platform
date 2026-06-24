@@ -31,7 +31,7 @@ export default function UserDetection() {
     risk_score: number;
     department: string;
     recent_events: DetectionEvent[];
-    anomalies: { anomaly_type: string; severity: string; score: number; description: string | null; timestamp: string }[];
+    anomalies: { id?: string; anomaly_type?: string; severity?: string; score?: number; description?: string | null; timestamp?: string; event_type?: string; risk_score?: number }[];
     first_seen: string | null;
     last_seen: string | null;
   } | null>(null);
@@ -253,13 +253,13 @@ export default function UserDetection() {
                             <div className={`w-2 h-2 rounded-full ${anomaly.severity === 'critical' ? 'bg-ueba-accent-red' : anomaly.severity === 'high' ? 'bg-orange-500' : 'bg-ueba-accent-yellow'}`} />
                             <div>
                               <p className="text-xs text-ueba-text-primary font-medium">
-                                {anomaly.anomaly_type.replace(/_/g, ' ')}
+                                {(anomaly.anomaly_type || anomaly.event_type || "unknown").replace(/_/g, " ")}
                               </p>
                               <p className="text-[10px] text-ueba-text-muted">{anomaly.description || anomaly.timestamp}</p>
                             </div>
                           </div>
-                          <span className={`text-xs font-mono font-bold ${riskScoreColor(anomaly.score * 10)}`}>
-                            {Math.round(anomaly.score * 10)}
+                          <span className={`text-xs font-mono font-bold ${riskScoreColor((anomaly.score || anomaly.risk_score || 0) * 10)}`}>
+                            {Math.round((anomaly.score || anomaly.risk_score || 0) * 10)}
                           </span>
                         </div>
                       ))}

@@ -34,6 +34,7 @@ CREATE INDEX idx_entities_last_seen ON entities (last_seen DESC);
 CREATE TABLE logs_raw (
     id BIGSERIAL,
     time TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (time, id),
     source TEXT NOT NULL,
     source_ip INET,
     log_level TEXT,
@@ -56,6 +57,7 @@ CREATE TABLE behavior_baselines (
     id BIGSERIAL,
     entity_id INTEGER REFERENCES entities(id),
     time TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (time, id),
     metric_name TEXT NOT NULL,
     metric_value DOUBLE PRECISION,
     baseline_mean DOUBLE PRECISION,
@@ -74,8 +76,9 @@ CREATE INDEX idx_behavior_anomaly ON behavior_baselines (is_anomaly, time DESC);
 -- 4. anomaly_detections — Hypertable (1-day chunks)
 -- =============================================================================
 CREATE TABLE anomaly_detections (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGSERIAL,
     time TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (time, id),
     entity_id INTEGER REFERENCES entities(id),
     anomaly_type TEXT NOT NULL,
     severity TEXT NOT NULL DEFAULT 'medium',
@@ -103,10 +106,11 @@ CREATE TABLE risk_scores (
     id BIGSERIAL,
     entity_id INTEGER REFERENCES entities(id),
     time TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (time, id),
     overall_score DOUBLE PRECISION NOT NULL,
     component_scores JSONB,
     scoring_version TEXT,
-    triggered_by BIGINT REFERENCES anomaly_detections(id),
+    triggered_by BIGINT,
     decay_factor DOUBLE PRECISION DEFAULT 0.95
 );
 SELECT create_hypertable('risk_scores', 'time', chunk_time_interval => INTERVAL '7 days');
