@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, AlertTriangle, Search, Activity, Clock, User, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -10,7 +10,8 @@ import { PageLoading } from '@/components/shared/LoadingSpinner';
 import { MetricCard } from '@/components/shared/MetricCard';
 import { formatTimestamp, riskScoreColor } from '@/lib/utils';
 import { useAlerts } from '@/hooks/useAlerts';
-import type { Alert } from '@/lib/api';
+import { getAlertCounts } from '@/lib/api';
+import type { AlertCounts } from '@/lib/api';
 
 function Zap({ className }: { className?: string }) {
   return (
@@ -37,6 +38,13 @@ export default function Alerts() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [counts, setCounts] = useState<AlertCounts | null>(null);
+
+  useEffect(() => {
+    getAlertCounts()
+      .then(setCounts)
+      .catch((err) => console.error('Failed to fetch alert counts', err));
+  }, []);
 
   const severityOptions = [
     { value: '', label: 'All Severities' },
@@ -60,9 +68,9 @@ export default function Alerts() {
     return true;
   });
 
-  const criticalCount = filteredAlerts.filter((a) => a.severity === 'critical' && a.status === 'open').length;
-  const openCount = filteredAlerts.filter((a) => a.status === 'open').length;
-  const investigatingCount = filteredAlerts.filter((a) => a.status === 'investigating').length;
+  const criticalCount = counts?.critical_open ?? filteredAlerts.filter((a) => a.severity === 'critical' && a.status === 'open').length;
+  const openCount = counts?.open ?? filteredAlerts.filter((a) => a.status === 'open').length;
+  const investigatingCount = counts?.investigating ?? filteredAlerts.filter((a) => a.status === 'investigating').length;
 
   const severityBadgeVariant = (severity: string): 'danger' | 'warning' | 'info' | 'success' => {
     switch (severity) {
@@ -88,9 +96,9 @@ export default function Alerts() {
 
   return (
     <div className="space-y-6">
-      {/* Stats row — from API data */}
+      {/* Stats row — from /alerts/counts API */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard title="Total Alerts" value={total} accent="blue" icon={<Bell />} subtitle="All time" />
+        <MetricCard title="Total Alerts" value={counts?.total ?? total} accent="blue" icon={<Bell />} subtitle="All time" />
         <MetricCard title="Open" value={openCount} accent="red" icon={<AlertTriangle />} trend="up" trendValue="+" />
         <MetricCard title="Investigating" value={investigatingCount} accent="yellow" icon={<Activity />} subtitle="In progress" />
         <MetricCard title="Critical Open" value={criticalCount} accent="red" icon={<Zap />} subtitle="Requires immediate action" />
@@ -237,7 +245,7 @@ export default function Alerts() {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-xs text-ueba-text-muted">Assignee</span>
-                            <span className="text-xs text-ueba-text-secondary">{alert.assignee || '—'}</span>
+                            <span className="text-xs text-ueba-text-secondary">{alert.assignee || '\u2014'}</span>
                           </div>
                         </div>
 
@@ -250,7 +258,7 @@ export default function Alerts() {
                               <Button size="sm" variant="outline" onClick={() => updateStatus(alert.id.replace('ALT-', ''), 'investigating')}>
                                 Start Investigation
                               </Button>
-                              <Button size="sm" variant="ghost" onClick={() => updateStatus(alert.id.replace('ALT-', ''), alert.status, 'Current User')}>
+                              <Button size="sm" variant="ghost" onClick={() => updateStatus(alert.id.replace('ALT-', ''), 'investigating', 'Current User')}>
                                 Assign to me
                               </Button>
                             </>

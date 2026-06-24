@@ -233,6 +233,17 @@ export default function UserDetection() {
                     <Badge variant="info">{entityDetail.department}</Badge>
                     <Badge variant="default">{entityDetail.anomalies.length} anomalies</Badge>
                   </div>
+                  <div className="flex flex-wrap items-center gap-4 mt-3 text-[10px] text-ueba-text-muted">
+                    {entityDetail.first_seen && (
+                      <span>First seen: {new Date(entityDetail.first_seen).toLocaleDateString()}</span>
+                    )}
+                    {entityDetail.last_seen && (
+                      <span>Last seen: {new Date(entityDetail.last_seen).toLocaleDateString()}</span>
+                    )}
+                    {!entityDetail.first_seen && !entityDetail.last_seen && (
+                      <span>Tracking since recent detection</span>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
