@@ -33,14 +33,3 @@ export function useStats() {
     refetch: fetchStats,
   };
 }
-
-export function useMockStats(): Stats {
-  return {
-    total_events: 154283,
-    active_alerts: 47,
-    entities_at_risk: 23,
-    avg_risk_score: 42,
-    events_last_hour: 3891,
-    critical_alerts: 12,
-  };
-}

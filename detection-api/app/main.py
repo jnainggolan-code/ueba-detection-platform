@@ -9,6 +9,9 @@ from app.core.config import settings
 from app.core.logging import setup_logging
 from app.api.v1 import events as events_v1
 from app.api.v1 import health as health_v1
+from app.api.v1 import stats as stats_v1
+from app.api.v1 import entities as entities_v1
+from app.api.v1 import alerts as alerts_v1
 from app.api.v2 import ingest as ingest_v2
 from app.api.v2 import process as process_v2
 from app.api.v2 import wazuh as wazuh_v2
@@ -45,6 +48,9 @@ def create_app() -> FastAPI:
     # Register routers
     app.include_router(events_v1.router)
     app.include_router(health_v1.router)
+    app.include_router(stats_v1.router)
+    app.include_router(entities_v1.router)
+    app.include_router(alerts_v1.router)
     app.include_router(ingest_v2.router)
     app.include_router(process_v2.router)
     app.include_router(wazuh_v2.router)
