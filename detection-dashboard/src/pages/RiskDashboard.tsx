@@ -60,16 +60,8 @@ const eventTrendData = [
   { hour: '23:00', events: 156, alerts: 1 },
 ];
 
-const entityRiskData = [
-  { name: 'svc-backup', score: 92, events: 3402 },
-  { name: 'john.doe', score: 87, events: 1243 },
-  { name: 'devops-bot', score: 81, events: 5621 },
-  { name: 'api-gateway', score: 78, events: 8901 },
-  { name: 'jane.smith', score: 65, events: 876 },
-  { name: 'sarah.connor', score: 45, events: 678 },
-  { name: 'mike.wilson', score: 34, events: 456 },
-  { name: 'db-readonly', score: 22, events: 2341 },
-];
+// Fallback mock for Entity Risk Score Ranking
+const entityRiskData: { name: string; score: number; events: number }[] = [];
 
 const eventTypeData = [
   { name: 'Auth', value: 35 },
@@ -261,7 +253,7 @@ export default function RiskDashboard() {
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={entityRiskData}
+                  data={stats?.entity_risk?.length ? stats.entity_risk : entityRiskData}
                   layout="vertical"
                   margin={{ left: 20 }}
                 >
@@ -276,7 +268,7 @@ export default function RiskDashboard() {
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="score" radius={[0, 4, 4, 0]}>
-                    {entityRiskData.map((entry, idx) => (
+                    {(stats?.entity_risk?.length ? stats.entity_risk : entityRiskData).map((entry: any, idx: number) => (
                       <Cell
                         key={idx}
                         fill={
