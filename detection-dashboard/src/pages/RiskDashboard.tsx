@@ -63,14 +63,7 @@ const eventTrendData = [
 // Fallback mock for Entity Risk Score Ranking
 const entityRiskData: { name: string; score: number; events: number }[] = [];
 
-const eventTypeData = [
-  { name: 'Auth', value: 35 },
-  { name: 'Network', value: 25 },
-  { name: 'File', value: 18 },
-  { name: 'Process', value: 12 },
-  { name: 'Privilege', value: 7 },
-  { name: 'Data', value: 3 },
-];
+const eventTypeData: { name: string; value: number }[] = [];
 
 const alertSeverityData = [
   { severity: 'Critical', count: 12, color: '#ef4444' },
@@ -124,6 +117,7 @@ export default function RiskDashboard() {
   const [timeRange, setTimeRange] = useState('24h');
 
   const chartData = stats?.event_trend || eventTrendData;
+  const chartEventTypeData = stats?.event_type_distribution?.length ? stats.event_type_distribution : eventTypeData;
   const totalAnomalies = useMemo(
     () => chartData.reduce((sum: number, h: { hour: string; events: number; alerts: number }) => sum + h.alerts, 0),
     [chartData]
@@ -301,9 +295,9 @@ export default function RiskDashboard() {
           <CardContent>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart data={stats?.event_type_distribution?.length ? stats.event_type_distribution : eventTypeData}>
+                <PieChart data={chartEventTypeData}>
                   <Pie
-                    data={eventTypeData}
+                    data={chartEventTypeData}
                     cx="50%"
                     cy="50%"
                     innerRadius={45}
@@ -311,7 +305,7 @@ export default function RiskDashboard() {
                     paddingAngle={3}
                     dataKey="value"
                   >
-                    {eventTypeData.map((entry, idx) => (
+                    {chartEventTypeData.map((entry: any, idx: number) => (
                       <Cell
                         key={idx}
                         fill={
@@ -332,7 +326,7 @@ export default function RiskDashboard() {
               </ResponsiveContainer>
             </div>
             <div className="grid grid-cols-2 gap-1 mt-2">
-              {eventTypeData.map((item, idx) => (
+              {chartEventTypeData.map((item: any, idx: number) => (
                 <div key={item.name} className="flex items-center gap-2 text-xs">
                   <span
                     className="w-2 h-2 rounded-full"
