@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-ueba-border;
+  }
+
+  body {
+    @apply bg-ueba-bg text-ueba-text-primary;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Custom scrollbar for dark SOC theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-ueba-bg-deep;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-ueba-cardhover rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ueba-text-muted;
+  }
+}
+
+@layer components {
+  .glow-green {
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+  }
+
+  .glow-red {
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+  }
+
+  .glow-blue {
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+  }
+
+  .card-gradient {
+    @apply bg-gradient-to-br from-ueba-card to-ueba-bg border border-ueba-border;
+  }
+
+  .status-dot {
+    @apply inline-block w-2 h-2 rounded-full;
+  }
+
+  .status-dot.active {
+    @apply bg-ueba-accent-green;
+  }
+
+  .status-dot.warning {
+    @apply bg-ueba-accent-yellow;
+  }
+
+  .status-dot.critical {
+    @apply bg-ueba-accent-red;
+  }
+
+  .status-dot.inactive {
+    @apply bg-ueba-text-muted;
+  }
+}

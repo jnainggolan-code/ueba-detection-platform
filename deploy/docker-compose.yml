@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  detection-db:
+    build:
+      context: ../detection-db
+      dockerfile: Dockerfile
+    container_name: detection-db
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ueba_detection}
+      POSTGRES_USER: ${POSTGRES_USER:-ueba_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - detection-db-data:/var/lib/postgresql/data
+      - ../detection-db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-ueba_admin} -d $${POSTGRES_DB:-ueba_detection}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ueba-network
+
+  detection-api:
+    build:
+      context: ../detection-api
+      dockerfile: Dockerfile.dev
+    container_name: detection-api
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ueba_admin}:${POSTGRES_PASSWORD:-changeme}@detection-db:5432/${POSTGRES_DB:-ueba_detection}
+      API_HOST: 0.0.0.0
+      API_PORT: 8081
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ../detection-api/app:/app/app:ro
+    depends_on:
+      detection-db:
+        condition: service_healthy
+    networks:
+      - ueba-network
+
+  detection-dashboard:
+    build:
+      context: ../detection-dashboard
+      dockerfile: Dockerfile.dev
+    container_name: detection-dashboard
+    restart: unless-stopped
+    ports:
+      - "8082:5173"
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://100.107.189.94:8081}
+    volumes:
+      - ../detection-dashboard/src:/app/src:ro
+      - ../detection-dashboard/public:/app/public:ro
+      - ../detection-dashboard/nginx:/app/nginx:ro
+    depends_on:
+      - detection-api
+    networks:
+      - ueba-network
+
+volumes:
+  detection-db-data:
+
+networks:
+  ueba-network:
+    driver: bridge
