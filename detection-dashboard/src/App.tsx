@@ -4,6 +4,7 @@ import RiskDashboard from './pages/RiskDashboard';
 import LogViewer from './pages/LogViewer';
 import UserDetection from './pages/UserDetection';
 import Alerts from './pages/Alerts';
+import RulesPage from '@/pages/Rules';
 import SettingsPage from './pages/Settings';
 
 export default function App() {

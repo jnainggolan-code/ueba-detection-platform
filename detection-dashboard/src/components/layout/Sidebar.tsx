@@ -21,6 +21,7 @@ const navItems = [
   { to: '/events', icon: ScrollText, label: 'Log Viewer' },
   { to: '/detections', icon: Users, label: 'User Detection' },
   { to: '/alerts', icon: Bell, label: 'Alerts' },
+  { to: '/rules', icon: Shield, label: 'Rules' },
 ];
 
 const bottomItems = [

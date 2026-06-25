@@ -137,3 +137,69 @@ export const getEntityDetections = (
   api.get(`/v1/entities/${encodeURIComponent(entity)}`).then((res) => res.data);
 
 export default api;
+// ---- Rule Engine APIs ----
+
+export interface RuleCondition {
+  field: string;
+  operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'in_list' | 'not_in_list' | 'matches_regex';
+  value: unknown;
+}
+
+export interface RuleConditionGroup {
+  logic: 'AND' | 'OR';
+  conditions: (RuleCondition | RuleConditionGroup)[];
+}
+
+export interface RuleAction {
+  type: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  mitre_technique?: string;
+  mitre_tactic?: string;
+}
+
+export interface Rule {
+  id: number;
+  name: string;
+  description: string | null;
+  conditions: RuleConditionGroup;
+  action: RuleAction;
+  enabled: boolean;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RuleCreatePayload {
+  name: string;
+  description?: string;
+  conditions: RuleConditionGroup;
+  action: RuleAction;
+  enabled?: boolean;
+  priority?: number;
+}
+
+export interface RuleUpdatePayload {
+  name?: string;
+  description?: string;
+  conditions?: RuleConditionGroup;
+  action?: RuleAction;
+  enabled?: boolean;
+  priority?: number;
+}
+
+export const getRules = (params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Rule>> =>
+  api.get('/v1/rules', { params }).then((res) => res.data);
+
+export const getRuleById = (id: number): Promise<Rule> =>
+  api.get(`/v1/rules/${id}`).then((res) => res.data);
+
+export const createRule = (payload: RuleCreatePayload): Promise<Rule> =>
+  api.post('/v1/rules', payload).then((res) => res.data);
+
+export const updateRule = (id: number, payload: RuleUpdatePayload): Promise<Rule> =>
+  api.put(`/v1/rules/${id}`, payload).then((res) => res.data);
+
+export const deleteRule = (id: number): Promise<void> =>
+  api.delete(`/v1/rules/${id}`);
