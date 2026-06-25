@@ -115,6 +115,12 @@ function PieTooltip({ active, payload }: any) {
 export default function RiskDashboard() {
   const [timeRange, setTimeRange] = useState('24h');
   const { stats, loading, error } = useStats(timeRange);
+  // Alert severity data - filtered from real API, with percentage
+  const severityDisplayData = stats?.alert_severity?.length
+    ? stats.alert_severity.filter((s: { count: number }) => s.count > 0)
+    : alertSeverityData;
+  const severityTotal = severityDisplayData.reduce((sum: number, s: { count: number }) => sum + s.count, 0);
+
 
   const chartData = stats?.event_trend || eventTrendData;
   const wibChartData = chartData.map(d => ({
@@ -364,13 +370,13 @@ export default function RiskDashboard() {
           <CardContent>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats?.alert_severity?.length ? stats.alert_severity : alertSeverityData}>
+                <BarChart data={severityDisplayData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                   <XAxis dataKey="severity" stroke="#64748b" tick={{ fontSize: 10 }} />
                   <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                    {(stats?.alert_severity?.length ? stats.alert_severity : alertSeverityData).map((entry, idx) => (
+                    {severityDisplayData.map((entry, idx) => (
                       <Cell key={idx} fill={entry.color} />
                     ))}
                   </Bar>
@@ -378,13 +384,13 @@ export default function RiskDashboard() {
               </ResponsiveContainer>
             </div>
             <div className="grid grid-cols-2 gap-2 mt-2">
-              {(stats?.alert_severity?.length ? stats.alert_severity : alertSeverityData).map((item) => (
+              {severityDisplayData.map((item) => (
                 <div key={item.severity} className="flex items-center justify-between p-2 rounded bg-ueba-bg-deep">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
                     <span className="text-xs text-ueba-text-muted">{item.severity}</span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-ueba-text-primary">{item.count}</span>
+                  <span className="text-xs font-mono font-bold text-ueba-text-primary">{item.count}{severityTotal > 0 ? " (" + Math.round(item.count/severityTotal*100) + "%)" : ""}</span>
                 </div>
               ))}
             </div>
