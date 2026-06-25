@@ -370,7 +370,7 @@ export default function RiskDashboard() {
                   <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                    {alertSeverityData.map((entry, idx) => (
+                    {(stats?.alert_severity?.length ? stats.alert_severity : alertSeverityData).map((entry, idx) => (
                       <Cell key={idx} fill={entry.color} />
                     ))}
                   </Bar>
@@ -378,7 +378,7 @@ export default function RiskDashboard() {
               </ResponsiveContainer>
             </div>
             <div className="grid grid-cols-2 gap-2 mt-2">
-              {alertSeverityData.map((item) => (
+              {(stats?.alert_severity?.length ? stats.alert_severity : alertSeverityData).map((item) => (
                 <div key={item.severity} className="flex items-center justify-between p-2 rounded bg-ueba-bg-deep">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
