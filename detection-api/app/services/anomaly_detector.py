@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy import text, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.event import LogsRaw, Entity, ScoringConfig, BehaviorBaseline, AnomalyDetection
+from app.services.risk_scoring import _detect_entity_type
 
 class AnomalyDetector:
     def __init__(self, session: AsyncSession):
@@ -81,7 +82,10 @@ class AnomalyDetector:
         entity = res_ent.scalar_one_or_none()
         if not entity:
             entity = Entity(
+                entity_type=_detect_entity_type(str(entity_value_str)),
                 entity_value=str(entity_value_str),
+                first_seen=datetime.now(timezone.utc),
+                last_seen=datetime.now(timezone.utc),
                 risk_score=0.0,
                 risk_level="low",
                 risk_factors={}
