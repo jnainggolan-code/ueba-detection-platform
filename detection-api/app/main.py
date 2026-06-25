@@ -15,6 +15,7 @@ from app.api.v1 import health as health_v1
 from app.api.v1 import stats as stats_v1
 from app.api.v1 import entities as entities_v1
 from app.api.v1 import alerts as alerts_v1
+from app.api.v1 import rules as rules_v1
 from app.api.v1 import engine as engine_v1
 from app.api.v2 import ingest as ingest_v2
 from app.api.v2 import process as process_v2
@@ -77,6 +78,7 @@ def create_app() -> FastAPI:
     app.include_router(ingest_v2.router)
     app.include_router(process_v2.router)
     app.include_router(wazuh_v2.router)
+    app.include_router(rules_v1.router)
 
     return app
 

@@ -18,6 +18,7 @@ from app.core.redis import get_sync_redis
 from app.db.session import background_session_factory
 from app.services.anomaly_detector import AnomalyDetector
 from app.services.risk_scoring import RiskScoringService
+from app.services.rule_engine import RuleEngineService
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,21 @@ async def _run_pipeline_async(event_id: int) -> dict:
                     "Risk score updated for event id=%s: score=%s",
                     event.id, risk_result.get("overall_score"),
                 )
+
+                # Step 3: Evaluate custom rules
+                try:
+                    rule_engine = RuleEngineService(session)
+                    triggered = await rule_engine.evaluate_all_rules(event, risk_result)
+                    if triggered:
+                        logger.info(
+                            "Rule engine triggered %d alerts for event id=%s",
+                            len(triggered), event.id
+                        )
+                except Exception as rule_exc:
+                    logger.error(
+                        "Rule evaluation error for event id=%s: %s",
+                        event.id, rule_exc, exc_info=True
+                    )
 
                 await session.commit()
 
