@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
@@ -22,29 +22,21 @@ router = APIRouter(prefix="/api/v1/events", tags=["Events v1"])
 @router.post("", response_model=EventResponse, status_code=201)
 async def post_event(
     payload: EventCreate,
-    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Ingest a single event with anomaly detection pipeline."""
     service = EventService(session)
-    return await service.ingest_single(
-        payload, source="api",
-        background_tasks=background_tasks,
-    )
+    return await service.ingest_single(payload, source="api")
 
 
 @router.post("/batch", response_model=BatchEventResponse, status_code=201)
 async def post_events_batch(
     payload: BatchEventCreate,
-    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Ingest a batch of events (max 1000)."""
     service = EventService(session)
-    return await service.ingest_batch(
-        payload, source="api",
-        background_tasks=background_tasks,
-    )
+    return await service.ingest_batch(payload, source="api")
 
 
 @router.get("", response_model=dict)

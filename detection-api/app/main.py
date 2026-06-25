@@ -1,12 +1,14 @@
 """FastAPI application entry point for UEBA Detection Platform."""
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.logging import setup_logging
+from app.core.redis import init_redis, close_redis
 from app.middleware.rate_limiter import RateLimitMiddleware
 from app.api.v1 import events as events_v1
 from app.api.v1 import health as health_v1
@@ -23,6 +25,16 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: init Redis on startup, close on shutdown."""
+    logger.info("Starting %s v%s", settings.app_name, settings.app_version)
+    await init_redis()
+    yield
+    await close_redis()
+    logger.info("Shutting down %s", settings.app_name)
+
+
 def create_app() -> FastAPI:
     """Application factory."""
     app = FastAPI(
@@ -31,6 +43,7 @@ def create_app() -> FastAPI:
         description="UEBA Detection Platform API — Ingestion & Analysis",
         docs_url="/docs",
         redoc_url="/redoc",
+        lifespan=lifespan,
     )
 
     # CORS
@@ -64,16 +77,6 @@ def create_app() -> FastAPI:
     app.include_router(ingest_v2.router)
     app.include_router(process_v2.router)
     app.include_router(wazuh_v2.router)
-
-    @app.on_event("startup")
-    async def on_startup() -> None:
-        logger.info(
-            "Starting %s v%s", settings.app_name, settings.app_version
-        )
-
-    @app.on_event("shutdown")
-    async def on_shutdown() -> None:
-        logger.info("Shutting down %s", settings.app_name)
 
     return app
 
