@@ -1,10 +1,11 @@
 """Event service — business logic for event ingestion with anomaly detection orchestration."""
 import json
-import asyncio
 import logging
 from datetime import datetime, timezone
 import re
 
+import rq
+from app.core.redis import get_sync_redis
 
 _WAZUH_TS_RE = re.compile(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}')
 
@@ -22,8 +23,6 @@ def _parse_wazuh_ts(ts_str):
     except Exception:
         return datetime.now(timezone.utc)
 
-from typing import Any, Callable
-from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.repositories.event_repo import EventRepository
 from app.models.event import LogsRaw
@@ -31,49 +30,40 @@ from app.schemas.event import (
     EventCreate,
     BatchEventCreate,
 )
-from app.services.anomaly_detector import AnomalyDetector
-from app.services.risk_scoring import RiskScoringService
 
 logger = logging.getLogger(__name__)
 
-# Max concurrent background pipeline tasks
-_pipeline_semaphore = asyncio.Semaphore(5)
+# RQ queue name for engine pipeline jobs
+ENGINE_PIPELINE_QUEUE = "engine-pipeline"
 
 
-async def _run_engine_pipeline(session_factory, event: LogsRaw) -> None:
-    """Background task: run anomaly detection + risk scoring for an event."""
-    async with _pipeline_semaphore:
-        try:
-            async with session_factory() as session:
-                # Refresh the event in the new session context
-                merged = await session.merge(event)
-                detector = AnomalyDetector(session)
-                scorer = RiskScoringService(session)
+def _enqueue_engine_pipeline(event: LogsRaw) -> bool:
+    """Enqueue event ID to RQ 'engine-pipeline' queue.
 
-                # Step 1: Detect anomalies
-                anomalies = await detector.detect_anomalies(merged)
-                if anomalies:
-                    logger.info(
-                        "Detected %d anomalies for event id=%s",
-                        len(anomalies), merged.id
-                    )
+    Worker fetches the full event from DB by ID.
+    Returns True if enqueued successfully, False otherwise.
+    """
+    try:
+        redis_conn = get_sync_redis()
+        queue = rq.Queue(ENGINE_PIPELINE_QUEUE, connection=redis_conn)
 
-                # Step 2: Update risk score
-                risk_result = await scorer.update_risk_score(merged)
-                logger.debug(
-                    "Risk score updated for event id=%s: score=%s",
-                    merged.id, risk_result.get("overall_score")
-                )
-
-                await session.commit()
-        except Exception as exc:
-            await session.rollback()
-            await session.close()
-            logger.error(
-                "Engine pipeline failed for event id=%s: %s",
-                event.id, exc, exc_info=True
-            )
-
+        queue.enqueue(
+            "app.worker.run_engine_pipeline",
+            event.id,
+            job_timeout=300,
+            result_ttl=3600,
+            failure_ttl=86400,
+        )
+        logger.debug(
+            "Enqueued engine pipeline job for event id=%s", event.id
+        )
+        return True
+    except Exception as exc:
+        logger.error(
+            "Failed to enqueue engine pipeline for event id=%s: %s",
+            event.id, exc, exc_info=True,
+        )
+        return False
 
 
 class EventService:
@@ -85,7 +75,6 @@ class EventService:
 
     async def ingest_single(
         self, payload: EventCreate, source: str = "api",
-        background_tasks: BackgroundTasks | None = None,
     ) -> dict:
         """Validate and insert a single event into logs_raw."""
         now = datetime.now(timezone.utc)
@@ -104,18 +93,13 @@ class EventService:
             "Ingested single event id=%s source=%s", created.id, source
         )
 
-        # Schedule background engine pipeline
-        if background_tasks:
-            from app.db.session import background_session_factory
-            background_tasks.add_task(
-                _run_engine_pipeline, background_session_factory, created
-            )
+        # Enqueue background engine pipeline via RQ
+        _enqueue_engine_pipeline(created)
 
         return {"id": created.id, "status": "stored", "source": source}
 
     async def ingest_batch(
         self, payload: BatchEventCreate, source: str = "api",
-        background_tasks: BackgroundTasks | None = None,
     ) -> dict:
         """Validate and bulk insert up to 1000 events."""
         now = datetime.now(timezone.utc)
@@ -136,19 +120,14 @@ class EventService:
         count = await self.repo.insert_batch(events)
         logger.info("Ingested batch of %d events source=%s", count, source)
 
-        # Schedule background engine pipeline for each event
-        if background_tasks:
-            from app.db.session import background_session_factory
-            for evt in events:
-                background_tasks.add_task(
-                    _run_engine_pipeline, background_session_factory, evt
-                )
+        # Enqueue background engine pipeline for each event via RQ
+        for evt in events:
+            _enqueue_engine_pipeline(evt)
 
         return {"count": count, "status": "stored", "source": source}
 
     async def ingest_raw(
         self, payload: dict, source: str = "raw",
-        background_tasks: BackgroundTasks | None = None,
     ) -> dict:
         """Ingest raw/arbitrary payload (source-agnostic)."""
         now = datetime.now(timezone.utc)
@@ -164,17 +143,12 @@ class EventService:
         )
         created = await self.repo.insert_one(event)
 
-        if background_tasks:
-            from app.db.session import background_session_factory
-            background_tasks.add_task(
-                _run_engine_pipeline, background_session_factory, created
-            )
+        _enqueue_engine_pipeline(created)
 
         return {"id": created.id, "status": "stored", "source": source}
 
     async def ingest_processed(
         self, payload: dict, source: str = "process",
-        background_tasks: BackgroundTasks | None = None,
     ) -> dict:
         """Ingest enriched/annotated data with parsed_data populated."""
         now = datetime.now(timezone.utc)
@@ -190,17 +164,12 @@ class EventService:
         )
         created = await self.repo.insert_one(event)
 
-        if background_tasks:
-            from app.db.session import background_session_factory
-            background_tasks.add_task(
-                _run_engine_pipeline, background_session_factory, created
-            )
+        _enqueue_engine_pipeline(created)
 
         return {"id": created.id, "status": "stored", "source": source}
 
     async def ingest_wazuh(
         self, payload: dict, source: str = "wazuh",
-        background_tasks: BackgroundTasks | None = None,
     ) -> dict:
         """Ingest Wazuh-native alert format (standard alerts.json format)."""
         now = datetime.now(timezone.utc)
@@ -286,11 +255,7 @@ class EventService:
         )
         created = await self.repo.insert_one(event)
 
-        if background_tasks:
-            from app.db.session import background_session_factory
-            background_tasks.add_task(
-                _run_engine_pipeline, background_session_factory, created
-            )
+        _enqueue_engine_pipeline(created)
 
         return {"id": created.id, "status": "stored", "source": source}
 

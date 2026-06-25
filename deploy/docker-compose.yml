@@ -23,6 +23,20 @@ services:
     networks:
       - ueba-network
 
+  detection-redis:
+    image: redis:7-alpine
+    container_name: detection-redis
+    restart: unless-stopped
+    ports:
+      - 6379:6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ueba-network
+
   detection-api:
     build:
       context: ../detection-api
@@ -33,6 +47,7 @@ services:
       - 8081:8081
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ueba_admin}:${POSTGRES_PASSWORD}@detection-db:5432/${POSTGRES_DB:-ueba_detection}
+      REDIS_URL: redis://detection-redis:6379/0
       API_HOST: 0.0.0.0
       API_PORT: 8081
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -40,6 +55,28 @@ services:
       - ../detection-api/app:/app/app:ro
     depends_on:
       detection-db:
+        condition: service_healthy
+      detection-redis:
+        condition: service_healthy
+    networks:
+      - ueba-network
+
+  detection-worker:
+    build:
+      context: ../detection-api
+      dockerfile: Dockerfile.worker
+    container_name: detection-worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ueba_admin}:${POSTGRES_PASSWORD}@detection-db:5432/${POSTGRES_DB:-ueba_detection}
+      REDIS_URL: redis://detection-redis:6379/0
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ../detection-api/app:/app/app:ro
+    depends_on:
+      detection-db:
+        condition: service_healthy
+      detection-redis:
         condition: service_healthy
     networks:
       - ueba-network
