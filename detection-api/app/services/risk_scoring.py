@@ -17,6 +17,24 @@ def get_risk_level(score: float) -> str:
         return 'medium'
     return 'low'
 
+
+import re as _entity_re
+
+_IP_RE = _entity_re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
+
+def _detect_entity_type(entity_value: str) -> str:
+    """Detect entity type from its value."""
+    if not entity_value or entity_value in ('unknown', 'unknown_entity'):
+        return 'unknown'
+    if _IP_RE.match(entity_value):
+        return 'ip'
+    if '@' in entity_value:
+        return 'email'
+    if entity_value.islower() and len(entity_value.split()) == 1:
+        return 'user'
+    return 'unknown'
+
+
 class RiskScoringService:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -128,7 +146,10 @@ class RiskScoringService:
             entity = res_ent.scalar_one_or_none()
             if not entity:
                 entity = Entity(
+                    entity_type=_detect_entity_type(str(entity_value)),
                     entity_value=str(entity_value),
+                    first_seen=datetime.now(timezone.utc),
+                    last_seen=datetime.now(timezone.utc),
                     risk_score=0.0,
                     risk_level="low",
                     risk_factors={}
@@ -143,7 +164,10 @@ class RiskScoringService:
             if not entity:
                 entity = Entity(
                     id=entity_id,
+                    entity_type=_detect_entity_type(str(entity_value or f"entity_{entity_id}")),
                     entity_value=str(entity_value or f"entity_{entity_id}"),
+                    first_seen=datetime.now(timezone.utc),
+                    last_seen=datetime.now(timezone.utc),
                     risk_score=0.0,
                     risk_level="low",
                     risk_factors={}

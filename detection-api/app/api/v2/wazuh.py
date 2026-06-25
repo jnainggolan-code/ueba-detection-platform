@@ -4,7 +4,7 @@ import hashlib
 import json
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +19,6 @@ router = APIRouter(prefix="/api/v2", tags=["Wazuh v2"])
 @router.post("/wazuh", status_code=201)
 async def post_wazuh_v2(
     payload: dict,
-    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Ingest Wazuh-native alert format with anomaly detection pipeline."""
@@ -54,7 +53,4 @@ async def post_wazuh_v2(
     payload["sha256_hash"] = sha256_hash
 
     service = EventService(session)
-    return await service.ingest_wazuh(
-        payload, source="wazuh",
-        background_tasks=background_tasks,
-    )
+    return await service.ingest_wazuh(payload, source="wazuh")

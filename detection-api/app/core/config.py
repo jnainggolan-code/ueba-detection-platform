@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://ueba_admin:changeme@detection-db:5432/ueba_detection"
     database_url_sync: str = "postgresql://ueba_admin:changeme@detection-db:5432/ueba_detection"
+    redis_url: str = "redis://detection-redis:6379/0"
 
     syslog_api_keys: str = ""
     raw_api_keys: str = ""
