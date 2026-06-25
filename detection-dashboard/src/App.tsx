@@ -15,6 +15,7 @@ export default function App() {
         <Route path="/events" element={<LogViewer />} />
         <Route path="/detections" element={<UserDetection />} />
         <Route path="/alerts" element={<Alerts />} />
+        <Route path="/rules" element={<RulesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

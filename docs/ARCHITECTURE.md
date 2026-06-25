@@ -51,6 +51,7 @@
 ║   ║           │  Ingestion → Scoring → Anomaly│               ║    ║
 ║   ║           │  ├ risk_scoring_engine       │                ║    ║
 ║   ║           │  ├ anomaly_detector          │                ║    ║
+║   ║           │  ├ rule_engine               │                ║    ║
 ║   ║           │  └ peer_group_analyzer       │                ║    ║
 ║   ║           └──────────────┬───────────────┘                 ║    ║
 ║   ║                          ▼                                ║    ║
@@ -74,6 +75,10 @@
 ║   ║  ┌────────────┐ ┌──────────────┐ ┌──────────────────┐      ║    ║
 ║   ║  │ risk_scores│ │   entities   │ │  scoring_config  │      ║    ║
 ║   ║  │(hypertable)│ │  (regular)   │ │  (regular)       │      ║    ║
+║   ║  └────────────┘ └──────────────┘ └──────────────────┘      ║    ║
+║   ║  ┌────────────┐                                            ║    ║
+║   ║  │custom_rules│                                            ║    ║
+║   ║  │ (regular)  │                                            ║    ║      ║    ║
 ║   ║  │  7d chunks │ │              │ │                  │      ║    ║
 ║   ║  └────────────┘ └──────────────┘ └──────────────────┘      ║    ║
 ║   ╚══════════════════════════╤══════════════════════════════════╝    ║
@@ -120,12 +125,31 @@ PROSESING:
 | Container | Image | Port | Base | Scaling |
 |:----------|:------|:-----|:-----|:--------|
 | `detection-api` | Custom | 8081 | python:3.12-slim | Horizontal |
+| `detection-worker` | Custom | — | python:3.12-slim | Horizontal |
+| `detection-redis` | Redis 7 | 6379 | redis:7-alpine | Vertical |
 | `detection-dashboard` | Nginx | 8082 | nginx:alpine | Horizontal |
 | `detection-db` | TimescaleDB | 5433 | timescale/timescaledb:latest-pg16 | Vertical |
 
 ## Data Flow
 
+### Pipeline (Worker Container)
+
+```
+Wazuh Event -> POST /api/v2/wazuh -> enqueue RQ job
+                                          |
+                                     RQ Worker
+                                          |
+                              +-----------+
+                              |
+                      1. Fetch event from DB by ID
+                      2. Anomaly Detection (z-score)
+                      3. Risk Scoring (decay + weight)
+                      4. Rule Engine evaluation
+                      5. Commit to DB
+```
+
 ### Ingestion Pipeline
+
 
 ```
 Source → soar-node3 → API Gateway → Parser → Repository → TimescaleDB
@@ -139,7 +163,24 @@ Source → soar-node3 → API Gateway → Parser → Repository → TimescaleDB
                                    anomaly_detections    entities     risk_scores
 ```
 
+### Rule Engine
+
+```
+Event -> risk scoring -> evaluate_all_rules()
+                            |
+                    +-------|--------+
+                    |                |
+              conditions      frequency check
+                    |                |
+                    +--------+-------+
+                             |
+                     execute_action()
+                             |
+                    create_alert() -> anomaly_detections
+```
+
 ### Scoring Algorithm
+
 
 ```
 risk_score = Σ(anomaly_score × weight × decay_factor)

@@ -37,7 +37,7 @@ ueba-detection-platform/
 │   │   ├── core/               # Config, security, logging
 │   │   ├── parsers/            # Source-specific parsers
 │   │   ├── db/repositories/    # Async data access layer
-│   │   ├── services/           # Business logic (scoring, anomaly)
+│   │   ├── services/           # Business logic (scoring, anomaly, rule_engine)
 │   │   ├── models/             # SQLAlchemy ORM models
 │   │   └── main.py             # App entry point
 │   ├── alembic/                # DB migrations
@@ -55,8 +55,12 @@ ueba-detection-platform/
 │   ├── Dockerfile
 │   └── package.json
 │
+├── detection-db/               # TimescaleDB init scripts
+│   ├── init.sql
+│   └── 003-rules.sql           # custom_rules table
+│
 ├── deploy/                     # Docker Compose + config
-│   ├── docker-compose.yml      # Main compose file
+│   ├── docker-compose.yml      # Main compose file (includes Redis + Worker)
 │   ├── nginx/                  # Frontend nginx config
 │   └── migrations-init/        # Initial DB migrations
 │
@@ -218,7 +222,9 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8081
 | 📋 **Log Viewer**       | Virtual-scrolled table, filter by source/level/time          |
 | 👤 **User Detection**   | User list with risk score bars, timeline chart               |
 | 🔥 **Risk**             | Risk heatmap, top risk entities table                        |
+| 🛡️ **Rules**            | Custom Rule Engine — CRUD rules, enable/disable toggle      |
 | 🔔 **Alerts**           | Timeline of anomaly detection, severity color coding         |
+| 🛡️ **Rules**            | Custom Rule Engine — CRUD rules, enable/disable toggle      |
 
 ### 4.2 Development mode
 
