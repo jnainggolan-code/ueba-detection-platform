@@ -67,41 +67,13 @@ async def _run_engine_pipeline(session_factory, event: LogsRaw) -> None:
 
                 await session.commit()
         except Exception as exc:
+            await session.rollback()
+            await session.close()
             logger.error(
                 "Engine pipeline failed for event id=%s: %s",
                 event.id, exc, exc_info=True
             )
 
-async def _run_engine_pipeline(session_factory, event: LogsRaw) -> None:
-    """Background task: run anomaly detection + risk scoring for an event."""
-    try:
-        async with session_factory() as session:
-            # Refresh the event in the new session context
-            merged = await session.merge(event)
-            detector = AnomalyDetector(session)
-            scorer = RiskScoringService(session)
-
-            # Step 1: Detect anomalies
-            anomalies = await detector.detect_anomalies(merged)
-            if anomalies:
-                logger.info(
-                    "Detected %d anomalies for event id=%s",
-                    len(anomalies), merged.id
-                )
-
-            # Step 2: Update risk score
-            risk_result = await scorer.update_risk_score(merged)
-            logger.debug(
-                "Risk score updated for event id=%s: score=%s",
-                merged.id, risk_result.get("overall_score")
-            )
-
-            await session.commit()
-    except Exception as exc:
-        logger.error(
-            "Engine pipeline failed for event id=%s: %s",
-            event.id, exc, exc_info=True
-        )
 
 
 class EventService:
