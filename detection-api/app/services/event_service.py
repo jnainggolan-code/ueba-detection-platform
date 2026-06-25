@@ -23,7 +23,6 @@ def _parse_wazuh_ts(ts_str):
     except Exception:
         return datetime.now(timezone.utc)
 
-from typing import Any, Callable
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.repositories.event_repo import EventRepository
 from app.models.event import LogsRaw
@@ -31,8 +30,6 @@ from app.schemas.event import (
     EventCreate,
     BatchEventCreate,
 )
-from app.services.anomaly_detector import AnomalyDetector
-from app.services.risk_scoring import RiskScoringService
 
 logger = logging.getLogger(__name__)
 
@@ -41,31 +38,18 @@ ENGINE_PIPELINE_QUEUE = "engine-pipeline"
 
 
 def _enqueue_engine_pipeline(event: LogsRaw) -> bool:
-    """Serialize event to dict and enqueue to RQ 'engine-pipeline' queue.
+    """Enqueue event ID to RQ 'engine-pipeline' queue.
 
+    Worker fetches the full event from DB by ID.
     Returns True if enqueued successfully, False otherwise.
     """
     try:
         redis_conn = get_sync_redis()
         queue = rq.Queue(ENGINE_PIPELINE_QUEUE, connection=redis_conn)
 
-        # Serialize the event to a dict for the worker
-        event_data = {
-            "id": event.id,
-            "time": event.time.isoformat() if event.time else None,
-            "source": event.source,
-            "source_ip": str(event.source_ip) if event.source_ip else None,
-            "log_level": event.log_level,
-            "raw_payload": event.raw_payload,
-            "parsed_data": event.parsed_data,
-            "parser_version": event.parser_version,
-            "ingested_at": event.ingested_at.isoformat() if event.ingested_at else None,
-            "processed": event.processed,
-        }
-
         queue.enqueue(
             "app.worker.run_engine_pipeline",
-            event_data,
+            event.id,
             job_timeout=300,
             result_ttl=3600,
             failure_ttl=86400,

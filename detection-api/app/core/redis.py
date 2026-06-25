@@ -28,6 +28,7 @@ async def init_redis() -> None:
             settings.redis_url,
             decode_responses=True,
             max_connections=50,
+            protocol=2,  # RESP2 to avoid RESP3 decode issues
         )
         _async_redis = aioredis.Redis(connection_pool=_async_pool)
         await _async_redis.ping()
@@ -66,8 +67,9 @@ def get_sync_redis() -> sync_redis.Redis:
     if _sync_redis is None:
         _sync_redis = sync_redis.from_url(
             settings.redis_url,
-            decode_responses=True,
+            decode_responses=False,  # RQ handles its own serialization
             max_connections=10,
+            protocol=2,  # RESP2 for stable binary handling
         )
         _sync_redis.ping()
         logger.debug("Sync Redis connected for RQ worker")
