@@ -20,10 +20,11 @@ engine = create_async_engine(
 # Dedicated engine for background tasks with smaller pool
 background_engine = create_async_engine(
     settings.database_url,
-    pool_size=5,
-    max_overflow=10,
+    pool_size=10,
+    max_overflow=20,
     pool_pre_ping=True,
-    pool_recycle=60,
+    pool_recycle=120,
+    pool_timeout=60,
 )
 
 # Background task session factory
