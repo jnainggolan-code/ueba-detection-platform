@@ -19,6 +19,8 @@ soar-node3 ──► detection-api (:8081) ←── source-path separation
 ## 📦 Container Prefix: `detection_xxx`
 
 - `detection-api` — Python FastAPI (port 8081)
+- `detection-worker` — RQ worker (background pipeline processing)
+- `detection-redis` — Redis 7 (task queue + rate limiter)
 - `detection-dashboard` — React/TypeScript (port 8082)
 - `detection-db` — TimescaleDB (port 5433)
 

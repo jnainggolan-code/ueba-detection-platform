@@ -133,6 +133,96 @@ curl -X POST http://100.107.189.94:8081/api/v1/wazuh \
 
 ---
 
+### Custom Rules (Rule Engine)
+
+#### POST `/api/v1/rules`
+Create a new detection rule.
+
+```bash
+curl -X POST http://100.107.189.94:8081/api/v1/rules   -H "Content-Type: application/json" \
+  -d '{
+    "name": "Suspicious Login",
+    "description": "Detect high-risk logins",
+    "conditions": {
+      "logic": "AND",
+      "conditions": [
+        {"field": "event_type", "operator": "equals", "value": "windows_4624"},
+        {"field": "is_anomaly", "operator": "equals", "value": true}
+      ]
+    },
+    "action": {
+      "type": "create_alert",
+      "severity": "high",
+      "title": "Suspicious Login Detected",
+      "description": "Rule engine triggered alert"
+    },
+    "enabled": true,
+    "priority": 10
+  }'
+```
+
+#### GET `/api/v1/rules`
+List all rules (paginated).
+
+**Query params:** `page`, `limit`, `enabled`
+
+#### GET `/api/v1/rules/{rule_id}`
+Get single rule details.
+
+#### PUT `/api/v1/rules/{rule_id}`
+Update rule (partial). Toggle `enabled` to activate/deactivate.
+
+```bash
+curl -X PUT http://100.107.189.94:8081/api/v1/rules/1 \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+```
+
+#### DELETE `/api/v1/rules/{rule_id}`
+Delete a rule permanently.
+
+### Supported Condition Operators
+| Operator | Description |
+|:---------|:------------|
+| `equals` | Field equals value |
+| `not_equals` | Field does not equal value |
+| `contains` | Value contains substring |
+| `greater_than` | Numeric field > value |
+| `less_than` | Numeric field < value |
+| `in_list` | Field in list of values |
+| `not_in_list` | Field not in list |
+| `matches_regex` | Field matches regex |
+
+### Available Condition Fields
+| Field | Source |
+|:------|:-------|
+| `event_type` | `parsed_data.event_type` |
+| `source` | Direct event field |
+| `source_ip` | Direct event field |
+| `log_level` | Direct event field |
+| `risk_score` | From risk scoring result |
+| `risk_level` | From risk scoring result |
+| `is_anomaly` | From risk scoring result |
+| `entity` | From parsed data |
+
+---
+
+### Engine Pipeline
+
+Pipeline dijalankan oleh **RQ Worker** untuk setiap event yang masuk:
+
+```
+Event Ingestion
+  -> Enqueue ke Redis Queue (engine-pipeline)
+  -> RQ Worker consume
+  -> Anomaly Detection (z-score)
+  -> Risk Scoring (decay + weight)
+  -> Rule Engine (evaluate custom rules)
+  -> Commit to DB
+```
+
+---
+
 ## Error Codes
 
 | Code | Description |
