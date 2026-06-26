@@ -188,6 +188,23 @@ async def get_stats(
         {"severity": "Low", "count": sev_row.low or 0, "color": "#3b82f6"},
     ]
 
+    # Risk distribution by entity risk level
+    risk_rows = await session.execute(
+        select(
+            func.sum(case((Entity.risk_score >= 80, 1), else_=0)).label("critical"),
+            func.sum(case((Entity.risk_score >= 60, 1), else_=0)).label("high"),
+            func.sum(case((Entity.risk_score >= 30, 1), else_=0)).label("medium"),
+            func.sum(case((Entity.risk_score < 30, 1), else_=0)).label("low"),
+        )
+    )
+    risk_row = risk_rows.one()
+    risk_distribution = [
+        {"level": "Critical", "count": risk_row.critical or 0, "color": "#ef4444"},
+        {"level": "High", "count": risk_row.high or 0, "color": "#f97316"},
+        {"level": "Medium", "count": risk_row.medium or 0, "color": "#eab308"},
+        {"level": "Low", "count": risk_row.low or 0, "color": "#3b82f6"},
+    ]
+
     # Health status
     health_status = [
         {"label": "Detection Engine", "status": "healthy", "value": "Active"},
@@ -212,5 +229,6 @@ async def get_stats(
         "entity_risk": entity_risk,
         "event_type_distribution": event_type_dist,
         "alert_severity": alert_severity,
+        "risk_distribution": risk_distribution,
         "health_status": health_status,
     }
