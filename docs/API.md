@@ -69,13 +69,23 @@ Webhook untuk Delinea PAM events (privileged account access, password checkout, 
 #### POST `/api/v2/cortexxdr`
 Webhook untuk Palo Alto Cortex XDR alerts (malware, BIOC, correlation alerts).
 
+Cortex XDR mengirim webhook ke Node3 Gateway dulu, baru diteruskan ke detection-api:
+
+```
+Cortex XDR ──► https://itops.dipostar.org/webhook/cortex-xdr ──► soar-node3
+                  ──► POST /api/v2/cortexxdr ──► detection-api:8081
+```
+
 ```bash
-curl -X POST http://100.107.189.94:8081/api/v2/cortexxdr \
-  -H "X-API-Key: ***" -H "Content-Type: application/json" \
+curl -X POST https://itops.dipostar.org/webhook/cortex-xdr \
+  -H "Content-Type: application/json" \
   -d '{"alert_id":"XDR12345","alert_type":"malware","severity":"high",
        "endpoint_name":"WIN-SRV-01","user":"jnainggolan",
        "file_name":"ransomware.exe","action":"blocked"}'
 ```
+
+> **Catatan:** Untuk internal test, bisa langsung ke endpoint API:
+> `curl -X POST http://100.107.189.94:8081/api/v2/cortexxdr [...]`
 
 ```bash
 curl -X POST http://100.107.189.94:8081/api/v2/delinea \
@@ -267,7 +277,7 @@ Semua server terhubung via **Netbird VPN** (100.107.x.x/16).
 Source yang kirim data langsung (bukan lewat node3):
 - **Wazuh** → `http://100.107.189.94:8081/api/v2/wazuh`
 - **Delinea PAM** → `http://100.107.189.94:8081/api/v2/delinea`
-- **Cortex XDR** → `http://100.107.189.94:8081/api/v2/cortexxdr`
+- **Cortex XDR** → `https://itops.dipostar.org/webhook/cortex-xdr` (via soar-node3)
 
 
 ## Related Docs
