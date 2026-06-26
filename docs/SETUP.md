@@ -171,10 +171,11 @@ FROM timescaledb_information.hypertables;
 
 | Method | Endpoint                | Source       | Fungsi                          |
 |:-------|:------------------------|:-------------|:--------------------------------|
-| POST   | `/api/v1/ingest`        | soar-node3   | Raw log ingestion               |
-| POST   | `/api/v1/process`       | soar-node3   | Annotated/processed data        |
-| POST   | `/api/v1/wazuh`         | soar-wazuh   | Wazuh alert webhook             |
+| POST   | `/api/v2/ingest`        | soar-node3   | Raw log ingestion               |
+| POST   | `/api/v2/process`       | soar-node3   | Annotated/processed data        |
+| POST   | `/api/v2/wazuh`         | soar-wazuh   | Wazuh alert webhook             |
 | POST   | `/api/v2/ingest`        | soar-node3   | Versi 2 API (scalable)          |
+| POST   | `/api/v2/delinea`       | Delinea PAM  | Delinea PAM webhook             |
 | GET    | `/api/ueba/health`      | —            | Health check                    |
 | GET    | `/api/v1/detections`    | —            | Anomaly detections list         |
 | GET    | `/api/v1/users`         | —            | User profiles                   |
@@ -185,10 +186,10 @@ FROM timescaledb_information.hypertables;
 Setiap source punya **parser** dan **storage** terpisah:
 
 ```
-POST /api/v1/ingest  ──► SyslogParser ──► logs_raw (source='syslog')
-POST /api/v1/process ──► RawParser    ──► logs_raw (source='raw')
-POST /api/v1/wazuh   ──► WazuhParser  ──► logs_raw (source='wazuh')
-POST /api/v1/delinea ──► DelineaParser ──► logs_raw (source='delinea')
+POST /api/v2/ingest  ──► SyslogParser ──► logs_raw (source='syslog')
+POST /api/v2/process ──► RawParser    ──► logs_raw (source='raw')
+POST /api/v2/wazuh   ──► WazuhParser  ──► logs_raw (source='wazuh')
+POST /api/v2/delinea ──► DelineaParser ──► logs_raw (source='delinea')
 ```
 
 ### 3.3 Authentication
@@ -250,16 +251,16 @@ npm run build
 
 ```
 soar-wazuh ──► soar-node3 ──► detection-api (soar-dashboard)
-  (syslog)        (:6514)        (:8081/api/v1/ingest)
+  (syslog)        (:6514)        (:8081/api/v2/ingest)
 
 soar-node3 ──► detection-api (soar-dashboard)
-   (raw)         (:8081/api/v1/process)
+   (raw)         (:8081/api/v2/process)
 
 soar-wazuh ──► detection-api (soar-dashboard)
-  (webhook)      (:8081/api/v1/wazuh)
+  (webhook)      (:8081/api/v2/wazuh)
 
 soar-dashboard ──► detection-api (soar-dashboard)
-  (delinea)      (:8081/api/v1/delinea)
+  (delinea)      (:8081/api/v2/delinea)
 ```
 
 ### 5.2 Konfigurasi rsyslog di soar-node3
@@ -287,7 +288,7 @@ sudo systemctl restart rsyslog
 
 ```bash
 # Dari soar-node3, test kirim log
-curl -X POST http://100.107.189.94:8081/api/v1/ingest \
+curl -X POST http://100.107.189.94:8081/api/v2/ingest \
   -H "Content-Type: application/json" \
   -d '{"source":"test","message":"Pipeline test","level":"info"}'
 

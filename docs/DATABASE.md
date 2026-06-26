@@ -162,7 +162,7 @@ CREATE TABLE scoring_config (
 
 ## Wazuh Alert Compatibility
 
-Semua log yang masuk melalui endpoint `/api/v1/wazuh` disimpan di tabel `logs_raw` dengan `source = 'wazuh'`. Field spesifik Wazuh (seperti rule_id, agent info, MITRE ATT&CK) disimpan di kolom **`evidence`** (JSONB) pada tabel `anomaly_detections` saat parser mendeteksi anomaly.
+Semua log yang masuk melalui endpoint `/api/v2/wazuh` disimpan di tabel `logs_raw` dengan `source = 'wazuh'`. Field spesifik Wazuh (seperti rule_id, agent info, MITRE ATT&CK) disimpan di kolom **`evidence`** (JSONB) pada tabel `anomaly_detections` saat parser mendeteksi anomaly.
 
 ### Evidence JSONB Structure
 
@@ -400,8 +400,8 @@ Semua server terhubung via **Netbird VPN** (100.107.x.x/16).
 
 ### Webhook Direct ke soar-dashboard
 Source yang kirim data langsung (bukan lewat node3):
-- **Wazuh** → `http://100.107.189.94:8081/api/v1/wazuh`
-- **Delinea PAM** → `http://100.107.189.94:8081/api/v1/delinea`
+- **Wazuh** → `http://100.107.189.94:8081/api/v2/wazuh`
+- **Delinea PAM** → `http://100.107.189.94:8081/api/v2/delinea`
 
 
 ## Related Documentation

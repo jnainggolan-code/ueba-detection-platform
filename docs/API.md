@@ -30,10 +30,10 @@ curl -X POST http://100.107.189.94:8081/api/v1/auth/login \
 ## Source Path Separation
 
 ```
-POST /api/v1/ingest   → SyslogParser → logs_raw (source='syslog')
-POST /api/v1/process  → RawParser    → logs_raw (source='raw')
-POST /api/v1/wazuh    → WazuhParser  → logs_raw (source='wazuh')
-POST /api/v1/delinea  → DelineaParser → logs_raw (source='delinea')
+POST /api/v2/ingest   → SyslogParser → logs_raw (source='syslog')
+POST /api/v2/process  → RawParser    → logs_raw (source='raw')
+POST /api/v2/wazuh    → WazuhParser  → logs_raw (source='wazuh')
+POST /api/v2/delinea  → DelineaParser → logs_raw (source='delinea')
 ```
 
 ---
@@ -42,39 +42,39 @@ POST /api/v1/delinea  → DelineaParser → logs_raw (source='delinea')
 
 ### Ingestion
 
-#### POST `/api/v1/ingest`
+#### POST `/api/v2/ingest`
 ```bash
-curl -X POST http://100.107.189.94:8081/api/v1/ingest \
+curl -X POST http://100.107.189.94:8081/api/v2/ingest \
   -H "X-API-Key: ***" -H "Content-Type: application/json" \
   -d '{"timestamp":"2026-06-23T08:00:00Z","hostname":"soar-node3",
        "source":"auth.log","log_level":"info",
        "message":"Accepted publickey for jnainggolan"}'
 ```
 
-#### POST `/api/v1/process`
+#### POST `/api/v2/process`
 ```bash
-curl -X POST http://100.107.189.94:8081/api/v1/process \
+curl -X POST http://100.107.189.94:8081/api/v2/process \
   -H "X-API-Key: ***" -H "Content-Type: application/json" \
   -d '{"timestamp":"...","entity_type":"user","entity_value":"jnainggolan",
        "event_type":"login","source_ip":"100.107.105.81","status":"success"}'
 ```
 
-#### POST `/api/v1/delinea`
+#### POST `/api/v2/delinea`
 
-#### POST `/api/v1/delinea`
+#### POST `/api/v2/delinea`
 Webhook untuk Delinea PAM events (privileged account access, password checkout, session recording events).
 
 ```bash
-curl -X POST http://100.107.189.94:8081/api/v1/delinea \
+curl -X POST http://100.107.189.94:8081/api/v2/delinea \
   -H "X-API-Key: ***" -H "Content-Type: application/json" \
   -d '{"event_type":"password_checkout","timestamp":"2026-06-23T08:00:00Z",
        "user":"admin","account":"root@server01","target":"192.168.1.100",
        "reason":"emergency_access","approver":"manager@company.com"}'
 ```
 
-#### POST `/api/v1/wazuh`
+#### POST `/api/v2/wazuh`
 ```bash
-curl -X POST http://100.107.189.94:8081/api/v1/wazuh \
+curl -X POST http://100.107.189.94:8081/api/v2/wazuh \
   -H "X-API-Key: ***" -H "Content-Type: application/json" \
   -d '{"timestamp":"...","rule_id":5710,"rule_description":"sshd: Failed password",
        "severity":10,"data":{"srcip":"45.33.32.156","dstuser":"root"},
@@ -252,8 +252,8 @@ Semua server terhubung via **Netbird VPN** (100.107.x.x/16).
 
 ### Webhook Direct ke soar-dashboard
 Source yang kirim data langsung (bukan lewat node3):
-- **Wazuh** → `http://100.107.189.94:8081/api/v1/wazuh`
-- **Delinea PAM** → `http://100.107.189.94:8081/api/v1/delinea`
+- **Wazuh** → `http://100.107.189.94:8081/api/v2/wazuh`
+- **Delinea PAM** → `http://100.107.189.94:8081/api/v2/delinea`
 
 
 ## Related Docs

@@ -104,12 +104,12 @@
 
 ```
 WEBHOOK DIRECT (tanpa node3):
-   Wazuh (100.107.158.164)  ──►  POST /api/v1/wazuh   ──► detection-api:8081
-   Delinea PAM              ──►  POST /api/v1/delinea ──► detection-api:8081
+   Wazuh (100.107.158.164)  ──►  POST /api/v2/wazuh   ──► detection-api:8081
+   Delinea PAM              ──►  POST /api/v2/delinea ──► detection-api:8081
 
 VIA SOAR-NODE3:
-   Syslog    ──► soar-node3 (100.107.105.81) ──► POST /api/v1/ingest  ──► detection-api:8081
-   Raw Logs  ──► soar-node3 (100.107.105.81) ──► POST /api/v1/process ──► detection-api:8081
+   Syslog    ──► soar-node3 (100.107.105.81) ──► POST /api/v2/ingest  ──► detection-api:8081
+   Raw Logs  ──► soar-node3 (100.107.105.81) ──► POST /api/v2/process ──► detection-api:8081
 
 PROSESING:
    detection-api:8081 ──► Parser ──► Service (scoring + anomaly) ──► Repository ──► detection-db:5433
@@ -261,9 +261,9 @@ Client → Reverse Proxy (TLS) → API Gateway (API Key) → Service (JWT)
 ### Key Hierarchy
 ```
 admin:*           → Full access
-ingest:syslog    → POST /api/v1/ingest only
-ingest:raw       → POST /api/v1/process only
-ingest:wazuh     → POST /api/v1/wazuh only
+ingest:syslog    → POST /api/v2/ingest only
+ingest:raw       → POST /api/v2/process only
+ingest:wazuh     → POST /api/v2/wazuh only
 dashboard:read   → GET endpoints only
 ```
 
@@ -289,8 +289,8 @@ Semua server terhubung via **Netbird VPN** (100.107.x.x/16).
 
 ### Webhook Direct ke soar-dashboard
 Source yang kirim data langsung (bukan lewat node3):
-- **Wazuh** → `http://100.107.189.94:8081/api/v1/wazuh`
-- **Delinea PAM** → `http://100.107.189.94:8081/api/v1/delinea`
+- **Wazuh** → `http://100.107.189.94:8081/api/v2/wazuh`
+- **Delinea PAM** → `http://100.107.189.94:8081/api/v2/delinea`
 
 
 ## Related Docs
