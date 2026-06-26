@@ -105,7 +105,8 @@
 ```
 WEBHOOK DIRECT (tanpa node3):
    Wazuh (100.107.158.164)  ──►  POST /api/v2/wazuh   ──► detection-api:8081
-   Delinea PAM              ──►  POST /api/v2/delinea ──► detection-api:8081
+   Delinea PAM              ──►  POST /api/v2/delinea   ──► detection-api:8081
+   Cortex XDR              ──►  POST /api/v2/cortexxdr ──► detection-api:8081
 
 VIA SOAR-NODE3:
    Syslog    ──► soar-node3 (100.107.105.81) ──► POST /api/v2/ingest  ──► detection-api:8081
@@ -291,6 +292,7 @@ Semua server terhubung via **Netbird VPN** (100.107.x.x/16).
 Source yang kirim data langsung (bukan lewat node3):
 - **Wazuh** → `http://100.107.189.94:8081/api/v2/wazuh`
 - **Delinea PAM** → `http://100.107.189.94:8081/api/v2/delinea`
+- **Cortex XDR** → `http://100.107.189.94:8081/api/v2/cortexxdr`
 
 
 ## Related Docs

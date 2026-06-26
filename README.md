@@ -10,6 +10,7 @@ soar-node3 ──► detection-api (:8081) ←── source-path separation
                     │                        /api/v2/ingest  (raw data)
                     │                        /api/v2/process (annotated)
                     │                        /api/v2/delinea (delinea webhook)
+                    │                        /api/v2/cortexxdr (cortex xdr webhook)
                     │                        /api/v2/wazuh  (wazuh webhook)
                     │
              detection-dashboard (:8082) ← UI (React)

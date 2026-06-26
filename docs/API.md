@@ -15,6 +15,7 @@
 | Raw Log | `X-API-Key: ***` | `ingest:raw` |
 | Wazuh | `X-API-Key: ***` | `ingest:wazuh` |
 | Delinea | `X-API-Key: ***` | `ingest:delinea` |
+| Cortex XDR | `X-API-Key: ***` | `ingest:cortex_xdr` |
 | Admin | `X-API-Key: ***` | `admin:*` |
 
 ### JWT Tokens
@@ -34,6 +35,7 @@ POST /api/v2/ingest   → SyslogParser → logs_raw (source='syslog')
 POST /api/v2/process  → RawParser    → logs_raw (source='raw')
 POST /api/v2/wazuh    → WazuhParser  → logs_raw (source='wazuh')
 POST /api/v2/delinea  → DelineaParser → logs_raw (source='delinea')
+POST /api/v2/cortexxdr → CortexXDRParser → logs_raw (source='cortex_xdr')
 ```
 
 ---
@@ -63,6 +65,17 @@ curl -X POST http://100.107.189.94:8081/api/v2/process \
 
 #### POST `/api/v2/delinea`
 Webhook untuk Delinea PAM events (privileged account access, password checkout, session recording events).
+
+#### POST `/api/v2/cortexxdr`
+Webhook untuk Palo Alto Cortex XDR alerts (malware, BIOC, correlation alerts).
+
+```bash
+curl -X POST http://100.107.189.94:8081/api/v2/cortexxdr \
+  -H "X-API-Key: ***" -H "Content-Type: application/json" \
+  -d '{"alert_id":"XDR12345","alert_type":"malware","severity":"high",
+       "endpoint_name":"WIN-SRV-01","user":"jnainggolan",
+       "file_name":"ransomware.exe","action":"blocked"}'
+```
 
 ```bash
 curl -X POST http://100.107.189.94:8081/api/v2/delinea \
@@ -254,6 +267,7 @@ Semua server terhubung via **Netbird VPN** (100.107.x.x/16).
 Source yang kirim data langsung (bukan lewat node3):
 - **Wazuh** → `http://100.107.189.94:8081/api/v2/wazuh`
 - **Delinea PAM** → `http://100.107.189.94:8081/api/v2/delinea`
+- **Cortex XDR** → `http://100.107.189.94:8081/api/v2/cortexxdr`
 
 
 ## Related Docs

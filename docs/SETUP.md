@@ -176,6 +176,7 @@ FROM timescaledb_information.hypertables;
 | POST   | `/api/v2/wazuh`         | soar-wazuh   | Wazuh alert webhook             |
 | POST   | `/api/v2/ingest`        | soar-node3   | Versi 2 API (scalable)          |
 | POST   | `/api/v2/delinea`       | Delinea PAM  | Delinea PAM webhook             |
+| POST   | `/api/v2/cortexxdr`      | Cortex XDR   | Cortex XDR alert webhook        |
 | GET    | `/api/ueba/health`      | —            | Health check                    |
 | GET    | `/api/v1/detections`    | —            | Anomaly detections list         |
 | GET    | `/api/v1/users`         | —            | User profiles                   |
