@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: "/api",
-  timeout: 15000,
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -79,6 +79,7 @@ export interface Stats {
 export interface EventsQuery {
   page?: number;
   limit?: number;
+  days?: number;
   source?: string;
   entity?: string;
   event_type?: string;

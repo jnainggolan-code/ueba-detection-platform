@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     raw_api_keys: str = ""
     wazuh_api_keys: str = ""
     delinea_api_keys: str = ""
+    cortex_xdr_api_keys: str = ""
     admin_api_keys: str = ""
 
     cors_origins: str = "*"

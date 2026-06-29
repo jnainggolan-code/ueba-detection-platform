@@ -20,6 +20,8 @@ from app.api.v1 import engine as engine_v1
 from app.api.v2 import ingest as ingest_v2
 from app.api.v2 import process as process_v2
 from app.api.v2 import wazuh as wazuh_v2
+from app.api.v2 import delinea as delinea_v2
+from app.api.v2 import cortexxdr as cortexxdr_v2
 
 # Setup logging before anything else
 setup_logging()
@@ -78,6 +80,8 @@ def create_app() -> FastAPI:
     app.include_router(ingest_v2.router)
     app.include_router(process_v2.router)
     app.include_router(wazuh_v2.router)
+    app.include_router(delinea_v2.router)
+    app.include_router(cortexxdr_v2.router)
     app.include_router(rules_v1.router)
 
     return app
