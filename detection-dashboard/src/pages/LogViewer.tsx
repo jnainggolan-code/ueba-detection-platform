@@ -22,6 +22,7 @@ export default function LogViewer() {
   const [selectedEvent, setSelectedEvent] = useState<DetectionEvent | null>(null);
   const [sortField, setSortField] = useState<SortField>('timestamp');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [timeRange, setTimeRange] = useState('7');
 
   const { stats } = useStats();
   useEffect(() => {
@@ -57,6 +58,14 @@ export default function LogViewer() {
   };
 
   // Derive source options from real API data
+  const timeRangeOptions: {value: string; label: string}[] = [
+    {value: '1', label: 'Last 24 hours'},
+    {value: '7', label: 'Last 7 days'},
+    {value: '14', label: 'Last 14 days'},
+    {value: '30', label: 'Last 30 days'},
+    {value: '90', label: 'Last 90 days'},
+    {value: '365', label: 'Last 365 days'},
+  ];
   const [sourceOptions, setSourceOptions] = useState<{value: string; label: string}[]>([{value: '', label: 'All Sources'}]);
   const [eventTypeOptions, setEventTypeOptions] = useState<{value: string; label: string}[]>([{value: '', label: 'All Events'}]);
 
@@ -120,6 +129,14 @@ export default function LogViewer() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={handleKeyDown}
+              />
+            </div>
+            <div className="w-36">
+              <label className="block text-xs text-ueba-text-muted mb-1">Time Range</label>
+              <Select
+                options={timeRangeOptions}
+                value={timeRange}
+                onChange={(e) => { setTimeRange(e.target.value); updateQuery({ days: parseInt(e.target.value) || 7, page: 1 }); }}
               />
             </div>
             <div className="w-40">

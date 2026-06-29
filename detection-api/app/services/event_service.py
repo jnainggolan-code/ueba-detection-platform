@@ -276,6 +276,7 @@ class EventService:
         entity: str | None = None,
         event_type: str | None = None,
         search: str | None = None,
+        days: int | None = None,
     ) -> dict:
         """List events with pagination and optional filters."""
         offset = (page - 1) * limit
@@ -283,6 +284,7 @@ class EventService:
             offset=offset, limit=limit,
             source=source, entity=entity,
             event_type=event_type, search=search,
+            days=days,
         )
         return {
             "data": [self._event_to_dict(e) for e in items],

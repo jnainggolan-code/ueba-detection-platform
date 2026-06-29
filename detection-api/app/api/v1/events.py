@@ -43,6 +43,7 @@ async def post_events_batch(
 async def list_events(
     page: int = Query(1, ge=1),
     limit: int = Query(25, ge=1, le=100),
+    days: int = Query(7, ge=1, le=365, description="Search window in days (default: 7)"),
     source: Optional[str] = None,
     entity: Optional[str] = None,
     event_type: Optional[str] = None,
@@ -55,6 +56,7 @@ async def list_events(
         page=page, limit=limit,
         source=source, entity=entity,
         event_type=event_type, search=search,
+        days=days,
     )
 
 
