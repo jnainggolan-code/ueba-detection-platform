@@ -84,6 +84,7 @@ export interface EventsQuery {
   entity?: string;
   event_type?: string;
   search?: string;
+  cursor?: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -92,6 +93,8 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
   total_pages: number;
+  cursor?: string;
+  has_more?: boolean;
 }
 
 // ---- Event APIs ----

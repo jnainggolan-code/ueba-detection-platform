@@ -4,9 +4,61 @@ interface PaginationProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  /** Cursor-based navigation */
+  hasMore?: boolean;
+  hasPrev?: boolean;
+  onNext?: () => void;
+  onPrev?: () => void;
 }
 
-export function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) {
+export function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+  hasMore = false,
+  hasPrev = false,
+  onNext,
+  onPrev,
+}: PaginationProps) {
+  // If cursor-based navigation is available, use it
+  if (onNext || onPrev) {
+    return (
+      <div className="flex items-center justify-center gap-1 mt-4">
+        <button
+          onClick={onPrev}
+          disabled={!hasPrev}
+          className={cn(
+            'px-3 py-1.5 text-xs rounded border border-ueba-border transition-colors',
+            !hasPrev
+              ? 'text-ueba-text-muted cursor-not-allowed opacity-50'
+              : 'text-ueba-text-secondary hover:bg-ueba-cardhover hover:text-ueba-text-primary'
+          )}
+        >
+          ← Prev
+        </button>
+
+        <span className="px-3 py-1.5 text-xs text-ueba-text-muted">
+          Page {currentPage}
+          {totalPages > 0 && ` of ${totalPages.toLocaleString()}`}
+        </span>
+
+        <button
+          onClick={onNext}
+          disabled={!hasMore}
+          className={cn(
+            'px-3 py-1.5 text-xs rounded border border-ueba-border transition-colors',
+            !hasMore
+              ? 'text-ueba-text-muted cursor-not-allowed opacity-50'
+              : 'text-ueba-text-secondary hover:bg-ueba-cardhover hover:text-ueba-text-primary'
+          )}
+        >
+          Next →
+        </button>
+      </div>
+    );
+  }
+
+  // Fallback: page-based pagination (original)
   const pages = getPageNumbers(currentPage, totalPages);
 
   if (totalPages <= 1) return null;

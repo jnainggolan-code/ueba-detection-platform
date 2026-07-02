@@ -1,10 +1,11 @@
 """Event repository — data access layer for log events and queries."""
 
+import json
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from sqlalchemy import func, text, select, or_, and_, cast, String
+from sqlalchemy import func, text, select, or_, and_, cast, String, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import LogsRaw
@@ -33,7 +34,7 @@ class EventRepository:
         return len(events)
 
     async def count_total(self) -> int:
-        """Return total number of events in logs_raw (using TimescaleDB approximate count for speed)."""
+        """Return total number of events in logs_raw (approximate for speed)."""
         try:
             result = await self.session.execute(
                 text("SELECT COALESCE(SUM(estimate), 0) FROM hypertable_approximate_row_count('logs_raw')")
@@ -102,26 +103,30 @@ class EventRepository:
         event_type: str | None = None,
         search: str | None = None,
         days: int | None = None,
-    ) -> tuple[list[LogsRaw], int]:
-        """Return paginated list of events + total count with optional filters.
+        cursor: str | None = None,
+    ) -> tuple[list[LogsRaw], int, str | None]:
+        """Return paginated list of events with optional filters.
 
-        Performance optimizations:
-        - Time-based pruning via days param (default: 7)
-        - JSONB containment operators instead of ILIKE on cast-to-text
-        - PostgreSQL full-text search (to_tsvector) for text search
-        - TimescaleDB chunk exclusion via time-range filter
+        Uses keyset (cursor) pagination for O(1) performance regardless
+        of page depth. Falls back to offset pagination when no cursor provided.
+
+        Returns: (items, total_count, next_cursor)
+        - next_cursor is None when no more pages exist
+        - next_cursor is a JSON string: {"time": "...", "id": N}
         """
         if days is None or days <= 0:
             days = 7
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-        query = select(LogsRaw).where(LogsRaw.time >= cutoff).order_by(LogsRaw.time.desc())
+        query = select(LogsRaw).where(LogsRaw.time >= cutoff)
 
         if source:
             query = query.where(LogsRaw.source == source)
         if entity:
+            # Uses new idx_logs_raw_entity_id BTREE index
             query = query.where(LogsRaw.parsed_data["entity_id"].as_string() == entity)
         if event_type:
+            # Uses new idx_logs_raw_event_type BTREE index
             query = query.where(LogsRaw.parsed_data["event_type"].as_string() == event_type)
 
         if search:
@@ -133,17 +138,64 @@ class EventRepository:
                 )
                 query = query.where(fts_condition).params(tsq=tsquery_parts)
 
-        try:
-            count_q = select(func.count()).select_from(query.subquery())
-            total = (await self.session.execute(count_q)).scalar() or 0
-        except Exception as exc:
-            logger.warning("Count query failed, using estimate: %s", exc)
+        # --- Keyset pagination (cursor-based) ---
+        if cursor:
+            try:
+                cursor_data = json.loads(cursor)
+                cursor_time = datetime.fromisoformat(cursor_data["time"])
+                cursor_id = cursor_data["id"]
+                # Keyset: WHERE (time, id) < (cursor_time, cursor_id)
+                query = query.where(
+                    tuple_(LogsRaw.time, LogsRaw.id) < (cursor_time, cursor_id)
+                )
+            except (json.JSONDecodeError, KeyError, ValueError) as exc:
+                logger.warning("Invalid cursor '%s': %s", cursor, exc)
+                # Fall back to offset pagination
+                if offset > 0:
+                    query = query.offset(offset)
+
+        query = query.order_by(LogsRaw.time.desc(), LogsRaw.id.desc())
+
+        # --- Count (use approximate for large datasets) ---
+        if not cursor and offset == 0:
+            # Only count on first page fetch
+            try:
+                # Use TimescaleDB approximate when available
+                result = await self.session.execute(
+                    text("SELECT COALESCE(SUM(estimate), 0) FROM hypertable_approximate_row_count('logs_raw')")
+                )
+                total = result.scalar() or 0
+                if total == 0:
+                    raise ValueError("Approximate count returned 0, falling back")
+            except Exception:
+                try:
+                    count_q = select(func.count()).select_from(query.subquery())
+                    total = (await self.session.execute(count_q)).scalar() or 0
+                except Exception as exc:
+                    logger.warning("Count query failed: %s", exc)
+                    total = 0
+        else:
+            # For subsequent pages, skip the count entirely — use cached total from service layer
             total = 0
 
-        query = query.offset(offset).limit(limit)
+        query = query.limit(limit + 1)  # Fetch 1 extra to detect has_more
         result = await self.session.execute(query)
         items = list(result.scalars().all())
-        return items, total
+
+        # Determine if there are more results + build next cursor
+        has_more = len(items) > limit
+        if has_more:
+            items = items[:limit]
+
+        next_cursor = None
+        if has_more and items:
+            last = items[-1]
+            next_cursor = json.dumps({
+                "time": last.time.isoformat(),
+                "id": last.id,
+            })
+
+        return items, total, next_cursor
 
     async def find_by_id(self, event_id: int) -> LogsRaw | None:
         """Find a single event by its id."""

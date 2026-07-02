@@ -48,15 +48,28 @@ async def list_events(
     entity: Optional[str] = None,
     event_type: Optional[str] = None,
     search: Optional[str] = None,
+    cursor: Optional[str] = Query(None, description="Keyset cursor for pagination (from previous response.cursor)"),
     session: AsyncSession = Depends(get_db_session),
 ) -> dict:
-    """List events with pagination and filters."""
+    """List events with pagination and filters.
+
+    Supports two pagination modes:
+    1. Cursor-based (recommended): Pass cursor from previous response.
+       O(1) performance regardless of result depth.
+    2. Page-based (backward compatible): Use page + limit.
+       Performance degrades with depth.
+
+    Usage:
+      GET /api/v1/events?limit=25&days=7
+      GET /api/v1/events?limit=25&cursor=...  (from response.cursor)
+      GET /api/v1/events?page=2&limit=25&source=wazuh  (backward compat)
+    """
     service = EventService(session)
     return await service.list_events(
         page=page, limit=limit,
         source=source, entity=entity,
         event_type=event_type, search=search,
-        days=days,
+        days=days, cursor=cursor,
     )
 
 

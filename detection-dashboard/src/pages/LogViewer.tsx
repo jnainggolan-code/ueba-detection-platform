@@ -17,7 +17,7 @@ type SortField = 'timestamp' | 'risk_score';
 type SortDir = 'asc' | 'desc';
 
 export default function LogViewer() {
-  const { events, total, totalPages, currentPage, loading, error, query, updateQuery, goToPage } = useEvents({ page: 1, limit: 25 });
+  const { events, total, totalPages, currentPage, loading, error, query, updateQuery, goToPage, goNext, goPrev, hasMore, hasPrev } = useEvents({ page: 1, limit: 25 });
   const [searchInput, setSearchInput] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<DetectionEvent | null>(null);
   const [sortField, setSortField] = useState<SortField>('timestamp');
@@ -297,7 +297,15 @@ export default function LogViewer() {
         </div>
 
         <div className="border-t border-ueba-border p-4">
-          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={goToPage} />
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={goToPage}
+            onNext={hasMore ? goNext : undefined}
+            onPrev={hasPrev ? goPrev : undefined}
+            hasMore={hasMore}
+            hasPrev={hasPrev}
+          />
         </div>
       </Card>
     </div>

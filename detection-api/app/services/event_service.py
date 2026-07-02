@@ -1,7 +1,9 @@
 """Event service — business logic for event ingestion with anomaly detection orchestration."""
 import json
 import logging
+import hashlib
 from datetime import datetime, timezone
+from typing import Optional
 import re
 
 import rq
@@ -35,6 +37,54 @@ logger = logging.getLogger(__name__)
 
 # RQ queue name for engine pipeline jobs
 ENGINE_PIPELINE_QUEUE = "engine-pipeline"
+
+# --- Redis cache config ---
+SEARCH_CACHE_TTL = 60          # seconds: short TTL for freshness
+SEARCH_CACHE_PREFIX = "es:search:"   # key prefix for search result cache
+
+
+def _search_cache_key(
+    page: int, limit: int, source: str | None = None,
+    entity: str | None = None, event_type: str | None = None,
+    search: str | None = None, days: int | None = 7,
+    cursor: str | None = None,
+) -> str:
+    """Generate a deterministic cache key from query parameters."""
+    parts = [
+        f"l={limit}",
+        f"d={days or 7}",
+        f"s={source or ''}",
+        f"e={entity or ''}",
+        f"et={event_type or ''}",
+        f"q={search or ''}",
+        f"c={cursor or ''}",
+        f"p={page}",
+    ]
+    raw = ":".join(parts)
+    # Hash to keep keys short
+    key_hash = hashlib.md5(raw.encode()).hexdigest()
+    return f"{SEARCH_CACHE_PREFIX}{key_hash}"
+
+
+def _invalidate_search_cache() -> None:
+    """Bust all search caches when new events are ingested.
+
+    Uses a generation counter so we don't have to enumerate all cache keys.
+    """
+    try:
+        redis = get_sync_redis()
+        redis.incr("es:search:generation")
+    except Exception as exc:
+        logger.warning("Failed to increment search cache generation: %s", exc)
+
+
+def _get_cache_generation() -> int:
+    """Get current cache generation number. Returns 0 if not set."""
+    try:
+        redis = get_sync_redis()
+        return int(redis.get("es:search:generation") or 0)
+    except Exception:
+        return 0
 
 
 def _enqueue_engine_pipeline(event: LogsRaw) -> bool:
@@ -72,6 +122,31 @@ class EventService:
     def __init__(self, session: AsyncSession):
         self.repo = EventRepository(session)
         self._session = session
+        self._cache_gen = _get_cache_generation()
+
+    async def _cache_get(self, key: str) -> dict | None:
+        """Get cached search result if generation matches."""
+        try:
+            redis = get_sync_redis()
+            gen = int(redis.get("es:search:generation") or 0)
+            if gen != self._cache_gen:
+                self._cache_gen = gen
+                return None  # Generation changed, cache invalid
+            data = redis.get(key)
+            if data:
+                return json.loads(data)
+        except Exception as exc:
+            logger.debug("Cache get failed: %s", exc)
+        return None
+
+    async def _cache_set(self, key: str, data: dict) -> None:
+        """Store search result in cache."""
+        try:
+            redis = get_sync_redis()
+            cache_key = f"{key}:gen:{self._cache_gen}"
+            redis.setex(cache_key, SEARCH_CACHE_TTL, json.dumps(data))
+        except Exception as exc:
+            logger.debug("Cache set failed: %s", exc)
 
     async def ingest_single(
         self, payload: EventCreate, source: str = "api",
@@ -92,6 +167,9 @@ class EventService:
         logger.info(
             "Ingested single event id=%s source=%s", created.id, source
         )
+
+        # Invalidate search cache
+        _invalidate_search_cache()
 
         # Enqueue background engine pipeline via RQ
         _enqueue_engine_pipeline(created)
@@ -120,6 +198,9 @@ class EventService:
         count = await self.repo.insert_batch(events)
         logger.info("Ingested batch of %d events source=%s", count, source)
 
+        # Invalidate search cache
+        _invalidate_search_cache()
+
         # Enqueue background engine pipeline for each event via RQ
         for evt in events:
             _enqueue_engine_pipeline(evt)
@@ -143,6 +224,7 @@ class EventService:
         )
         created = await self.repo.insert_one(event)
 
+        _invalidate_search_cache()
         _enqueue_engine_pipeline(created)
 
         return {"id": created.id, "status": "stored", "source": source}
@@ -164,6 +246,7 @@ class EventService:
         )
         created = await self.repo.insert_one(event)
 
+        _invalidate_search_cache()
         _enqueue_engine_pipeline(created)
 
         return {"id": created.id, "status": "stored", "source": source}
@@ -255,6 +338,7 @@ class EventService:
         )
         created = await self.repo.insert_one(event)
 
+        _invalidate_search_cache()
         _enqueue_engine_pipeline(created)
 
         return {"id": created.id, "status": "stored", "source": source}
@@ -277,22 +361,57 @@ class EventService:
         event_type: str | None = None,
         search: str | None = None,
         days: int | None = None,
+        cursor: str | None = None,
     ) -> dict:
-        """List events with pagination and optional filters."""
-        offset = (page - 1) * limit
-        items, total = await self.repo.find_all(
+        """List events with pagination and optional filters.
+
+        Uses cursor-based (keyset) pagination for O(1) performance.
+        Falls back to offset-based pagination for backward compatibility.
+
+        Returns:
+            dict with keys: data, total, page, limit, total_pages,
+                            cursor (next cursor), has_more
+        """
+        # --- Redis cache lookup ---
+        cache_key = _search_cache_key(
+            page=page, limit=limit, source=source,
+            entity=entity, event_type=event_type,
+            search=search, days=days, cursor=cursor,
+        )
+        cached = await self._cache_get(cache_key)
+        if cached is not None:
+            logger.debug("Search cache HIT for key=%s", cache_key)
+            return cached
+
+        # --- Database query ---
+        offset = (page - 1) * limit if page > 1 and not cursor else 0
+        items, total, next_cursor = await self.repo.find_all(
             offset=offset, limit=limit,
             source=source, entity=entity,
             event_type=event_type, search=search,
-            days=days,
+            days=days, cursor=cursor,
         )
-        return {
+
+        # Build response: try to provide total from first page
+        total_pages = 1
+        if total > 0:
+            total_pages = max(1, (total + limit - 1) // limit)
+
+        result = {
             "data": [self._event_to_dict(e) for e in items],
             "total": total,
             "page": page,
             "limit": limit,
-            "total_pages": max(1, (total + limit - 1) // limit),
+            "total_pages": total_pages,
+            "cursor": next_cursor,
+            "has_more": next_cursor is not None,
         }
+
+        # Cache only first page (no cursor) to keep cache simple
+        if not cursor:
+            await self._cache_set(cache_key, result)
+
+        return result
 
     async def get_event_by_id(self, event_id: int) -> dict:
         """Get a single event by its id."""
