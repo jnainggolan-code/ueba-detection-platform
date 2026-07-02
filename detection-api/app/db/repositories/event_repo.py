@@ -3,9 +3,8 @@
 import json
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 
-from sqlalchemy import func, text, select, or_, and_, cast, String, tuple_
+from sqlalchemy import func, text, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import LogsRaw
@@ -34,27 +33,13 @@ class EventRepository:
         return len(events)
 
     async def count_total(self) -> int:
-        """Return total number of events in logs_raw (approximate for speed)."""
+        """Return approximate total event count."""
         try:
-            result = await self.session.execute(
-                text("SELECT COALESCE(SUM(estimate), 0) FROM hypertable_approximate_row_count('logs_raw')")
-            )
-            row = result.scalar()
-            if row and row > 0:
-                return row
+            result = await self.session.execute(select(func.count(LogsRaw.id)))
+            return result.scalar() or 0
         except Exception as exc:
-            logger.warning("Approximate count failed, falling back: %s", exc)
-        try:
-            result = await self.session.execute(
-                text("SELECT reltuples::bigint FROM pg_class WHERE relname = 'logs_raw'")
-            )
-            row = result.scalar()
-            if row and row > 0:
-                return int(row)
-        except Exception:
-            pass
-        result = await self.session.execute(select(func.count(LogsRaw.id)))
-        return result.scalar() or 0
+            logger.warning("Count query failed: %s", exc)
+            return 0
 
     async def count_by_source(self) -> list[dict]:
         """Return event count grouped by source (last 7 days only for speed)."""
@@ -111,22 +96,21 @@ class EventRepository:
         of page depth. Falls back to offset pagination when no cursor provided.
 
         Returns: (items, total_count, next_cursor)
+        - total_count uses PostgreSQL approximate count (fast, no I/O)
         - next_cursor is None when no more pages exist
-        - next_cursor is a JSON string: {"time": "...", "id": N}
         """
         if days is None or days <= 0:
             days = 7
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
+        # Build base query
         query = select(LogsRaw).where(LogsRaw.time >= cutoff)
 
         if source:
             query = query.where(LogsRaw.source == source)
         if entity:
-            # Uses new idx_logs_raw_entity_id BTREE index
             query = query.where(LogsRaw.parsed_data["entity_id"].as_string() == entity)
         if event_type:
-            # Uses new idx_logs_raw_event_type BTREE index
             query = query.where(LogsRaw.parsed_data["event_type"].as_string() == event_type)
 
         if search:
@@ -138,57 +122,66 @@ class EventRepository:
                 )
                 query = query.where(fts_condition).params(tsq=tsquery_parts)
 
-        # --- Keyset pagination (cursor-based) ---
-        if cursor:
+        # --- Keyset pagination ---
+        if cursor and not search:
             try:
                 cursor_data = json.loads(cursor)
                 cursor_time = datetime.fromisoformat(cursor_data["time"])
                 cursor_id = cursor_data["id"]
-                # Keyset: WHERE (time, id) < (cursor_time, cursor_id)
                 query = query.where(
                     tuple_(LogsRaw.time, LogsRaw.id) < (cursor_time, cursor_id)
                 )
             except (json.JSONDecodeError, KeyError, ValueError) as exc:
                 logger.warning("Invalid cursor '%s': %s", cursor, exc)
-                # Fall back to offset pagination
                 if offset > 0:
                     query = query.offset(offset)
 
-        query = query.order_by(LogsRaw.time.desc(), LogsRaw.id.desc())
-
-        # --- Count (use approximate for large datasets) ---
-        if not cursor and offset == 0:
-            # Only count on first page fetch
-            try:
-                # Use TimescaleDB approximate when available
-                result = await self.session.execute(
-                    text("SELECT COALESCE(SUM(estimate), 0) FROM hypertable_approximate_row_count('logs_raw')")
-                )
-                total = result.scalar() or 0
-                if total == 0:
-                    raise ValueError("Approximate count returned 0, falling back")
-            except Exception:
-                try:
-                    count_q = select(func.count()).select_from(query.subquery())
-                    total = (await self.session.execute(count_q)).scalar() or 0
-                except Exception as exc:
-                    logger.warning("Count query failed: %s", exc)
-                    total = 0
+        if search:
+            # For FTS search, skip ORDER BY to let PostgreSQL use the GIN index directly.
+            # Results are returned in arbitrary order (fastest path).
+            pass
         else:
-            # For subsequent pages, skip the count entirely — use cached total from service layer
-            total = 0
+            query = query.order_by(LogsRaw.time.desc(), LogsRaw.id.desc())
 
-        query = query.limit(limit + 1)  # Fetch 1 extra to detect has_more
+        # --- Approximate count ---
+        total = 0
+        if not cursor:
+            try:
+                if search:
+                    # FTS count is expensive; use pg_class approximate count instead
+                    result = await self.session.execute(
+                        text("SELECT COALESCE(SUM(reltuples), 0)::bigint FROM pg_class"
+                             " WHERE relname LIKE '_hyper_1_%_chunk'"
+                             " AND reltuples > 0")
+                    )
+                    total = result.scalar() or 0
+                else:
+                    # Fast index-only count for indexed fields
+                    count_query = select(func.count(LogsRaw.id)).where(LogsRaw.time >= cutoff)
+                    if source:
+                        count_query = count_query.where(LogsRaw.source == source)
+                    if entity:
+                        count_query = count_query.where(LogsRaw.parsed_data["entity_id"].as_string() == entity)
+                    if event_type:
+                        count_query = count_query.where(LogsRaw.parsed_data["event_type"].as_string() == event_type)
+                    result = await self.session.execute(count_query)
+                    total = result.scalar() or 0
+            except Exception as exc:
+                logger.warning("Count failed: %s", exc)
+                total = 0
+
+        # --- Fetch with +1 extra to detect has_more ---
+        query = query.limit(limit + 1)
         result = await self.session.execute(query)
         items = list(result.scalars().all())
 
-        # Determine if there are more results + build next cursor
         has_more = len(items) > limit
         if has_more:
             items = items[:limit]
 
+        # Build next cursor from last item (only for ordered queries)
         next_cursor = None
-        if has_more and items:
+        if has_more and items and not search:
             last = items[-1]
             next_cursor = json.dumps({
                 "time": last.time.isoformat(),

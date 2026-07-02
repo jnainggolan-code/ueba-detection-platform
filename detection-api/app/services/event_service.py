@@ -66,18 +66,6 @@ def _search_cache_key(
     return f"{SEARCH_CACHE_PREFIX}{key_hash}"
 
 
-def _invalidate_search_cache() -> None:
-    """Bust all search caches when new events are ingested.
-
-    Uses a generation counter so we don't have to enumerate all cache keys.
-    """
-    try:
-        redis = get_sync_redis()
-        redis.incr("es:search:generation")
-    except Exception as exc:
-        logger.warning("Failed to increment search cache generation: %s", exc)
-
-
 def _get_cache_generation() -> int:
     """Get current cache generation number. Returns 0 if not set."""
     try:
@@ -122,16 +110,12 @@ class EventService:
     def __init__(self, session: AsyncSession):
         self.repo = EventRepository(session)
         self._session = session
-        self._cache_gen = _get_cache_generation()
+        pass
 
     async def _cache_get(self, key: str) -> dict | None:
-        """Get cached search result if generation matches."""
+        """Get cached search result."""
         try:
             redis = get_sync_redis()
-            gen = int(redis.get("es:search:generation") or 0)
-            if gen != self._cache_gen:
-                self._cache_gen = gen
-                return None  # Generation changed, cache invalid
             data = redis.get(key)
             if data:
                 return json.loads(data)
@@ -140,11 +124,10 @@ class EventService:
         return None
 
     async def _cache_set(self, key: str, data: dict) -> None:
-        """Store search result in cache."""
+        """Store search result in cache with TTL."""
         try:
             redis = get_sync_redis()
-            cache_key = f"{key}:gen:{self._cache_gen}"
-            redis.setex(cache_key, SEARCH_CACHE_TTL, json.dumps(data))
+            redis.setex(key, SEARCH_CACHE_TTL, json.dumps(data))
         except Exception as exc:
             logger.debug("Cache set failed: %s", exc)
 
@@ -168,8 +151,7 @@ class EventService:
             "Ingested single event id=%s source=%s", created.id, source
         )
 
-        # Invalidate search cache
-        _invalidate_search_cache()
+        # Cache expires naturally via TTL
 
         # Enqueue background engine pipeline via RQ
         _enqueue_engine_pipeline(created)
@@ -198,8 +180,7 @@ class EventService:
         count = await self.repo.insert_batch(events)
         logger.info("Ingested batch of %d events source=%s", count, source)
 
-        # Invalidate search cache
-        _invalidate_search_cache()
+        # Cache expires naturally via TTL
 
         # Enqueue background engine pipeline for each event via RQ
         for evt in events:
@@ -224,7 +205,6 @@ class EventService:
         )
         created = await self.repo.insert_one(event)
 
-        _invalidate_search_cache()
         _enqueue_engine_pipeline(created)
 
         return {"id": created.id, "status": "stored", "source": source}
@@ -246,7 +226,6 @@ class EventService:
         )
         created = await self.repo.insert_one(event)
 
-        _invalidate_search_cache()
         _enqueue_engine_pipeline(created)
 
         return {"id": created.id, "status": "stored", "source": source}
@@ -338,7 +317,6 @@ class EventService:
         )
         created = await self.repo.insert_one(event)
 
-        _invalidate_search_cache()
         _enqueue_engine_pipeline(created)
 
         return {"id": created.id, "status": "stored", "source": source}
